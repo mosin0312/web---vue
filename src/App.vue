@@ -1,9 +1,7 @@
 <template>
-  <UserData />
-  <HashPassword />
+  <RegistrationContainer />
 </template>
 
 <script setup>
-import HashPassword from './components/HashPassword.vue';
-import UserData from './components/UserData.vue';
+import RegistrationContainer from './components/RegistrationContainer.vue';
 </script>

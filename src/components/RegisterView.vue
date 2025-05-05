@@ -173,7 +173,8 @@ export default {
       this.showCentralAlert('所有欄位驗證通過，可以送出註冊資料！');
     },
     goLogin() {
-      this.$router.push('/login');
+      this.$router.push('/');
+
     }
   },
   beforeUnmount() {

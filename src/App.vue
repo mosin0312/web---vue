@@ -1,7 +1,5 @@
 <template>
-  <RegistrationContainer />
+  <div id="app">
+    <router-view />
+  </div>
 </template>
-
-<script setup>
-import RegistrationContainer from './components/RegistrationContainer.vue';
-</script>

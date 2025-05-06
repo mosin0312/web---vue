@@ -9,43 +9,50 @@
 
     <form @submit.prevent="submitForm" class="form-content">
       <div class="form-group">
-        <input v-model="form.phone" ref="phone" type="text" placeholder="請輸入手機號碼" />
-        <small class="error-text" v-if="errors.phone">{{ errors.phone }}</small>
+        <input v-model="form.phone" ref="phone" type="text" placeholder="請輸入手機號碼" @blur="validatePhone" />
+        <small :class="errors.phone ? 'error-text' : 'hint-text'">
+          {{ errors.phone || '09 開頭的 10 碼手機號碼' }}
+        </small>
       </div>
 
       <div class="form-group">
-        <input v-model="form.nickname" ref="nickname" type="text" placeholder="請輸入暱稱" maxlength="20" />
-        <small class="error-text" v-if="errors.nickname">{{ errors.nickname }}</small>
+        <input v-model="form.nickname" ref="nickname" type="text" placeholder="請輸入暱稱" maxlength="20" @blur="validateNickname"/>
+        <small :class="errors.nickname ? 'error-text' : 'hint-text'">
+          {{ errors.nickname || '不得為空，且最多 20 字元' }}
+        </small>
       </div>
 
       <div class="form-group">
-        <input v-model="form.username" ref="username" type="text" placeholder="請輸入帳號名稱" />
-        <small class="error-text" v-if="errors.username">{{ errors.username }}</small>
+        <input v-model="form.username" ref="username" type="text" placeholder="請輸入帳號名稱" @blur="validateUsername"/>
+        <small :class="errors.username ? 'error-text' : 'hint-text'">
+          {{ errors.username || '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號' }}
+        </small>
       </div>
 
       <div class="form-group">
-        <input v-model="form.password" ref="password" type="password" placeholder="請輸入密碼" />
-        <small class="error-text" v-if="errors.password">{{ errors.password }}</small>
+        <input v-model="form.password" ref="password" type="password" placeholder="請輸入密碼" @blur="validatePassword"/>
+        <small :class="errors.password ? 'error-text' : 'hint-text'">
+          {{ errors.password || '密碼需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號' }}
+        </small>
       </div>
 
       <div class="form-group email-group">
         <div class="email-row">
-          <input v-model="form.email" type="email" placeholder="請輸入Email" />
-          <button
-            type="button"
-            class="code-button"
-            :disabled="countdown > 0"
-            @click="sendVerificationCode"
-          >
+          <input v-model="form.email" type="email" placeholder="請輸入Email" @blur="validateEmail"/>
+          <button type="button" class="code-button" :disabled="countdown > 0" @click="sendVerificationCode">
             {{ countdown > 0 ? countdown + ' 秒後重發' : '獲取驗證碼' }}
           </button>
         </div>
-        <small>不得空白</small>
+        <small :class="errors.email ? 'error-text' : 'hint-text'">
+          {{ errors.email || '請輸入有效的 Email 格式' }}
+        </small>
       </div>
 
       <div class="form-group">
-        <input v-model="form.code" type="text" placeholder="驗證碼" maxlength="6" />
-        <small>驗證碼6位數字</small>
+        <input v-model="form.code" type="text" placeholder="驗證碼" maxlength="6" @blur="validateCode"/>
+        <small :class="errors.code ? 'error-text' : 'hint-text'">
+            {{ errors.code || '請輸入 6 位數驗證碼' }}
+          </small>
       </div>
 
       <div class="button-group">
@@ -99,6 +106,46 @@ export default {
     };
   },
   methods: {
+    validatePhone() {
+    if (!/^09\d{8}$/.test(this.form.phone)) this.errors.phone = '手機格式錯誤，格式為09 開頭的 10 碼手機號碼';
+    else this.errors.phone = '';
+  },
+  validateNickname() {
+    if (!this.form.nickname.trim() || this.form.nickname.length > 20)
+      this.errors.nickname = '暱稱不得為空，且最多 20 字元';
+    else this.errors.nickname = '';
+  },
+  validateUsername() {
+    const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
+    if (!pattern.test(this.form.username)) this.errors.username = '帳號格式錯誤，格式為12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
+    else this.errors.username = '';
+  },
+  validatePassword() {
+    const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
+    if (!pattern.test(this.form.password)) this.errors.password = '密碼格式錯誤12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
+    else this.errors.password = '';
+  },
+  validateEmail() {
+    const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!pattern.test(this.form.email)) this.errors.email = '請輸入有效 Email 格式';
+    else this.errors.email = '';
+  },
+  validateCode() {
+    const pattern = /^\d{6}$/;
+    if (!pattern.test(this.form.code)) this.errors.code = '驗證碼需為 6 位數字';
+    else this.errors.code = '';
+  },
+  validateFields() {
+    this.validatePhone();
+    this.validateNickname();
+    this.validateUsername();
+    this.validatePassword();
+    this.validateEmail();
+    this.validateCode();
+    const firstError = Object.entries(this.errors).find(([, v]) => v);
+    if (firstError && this.$refs[firstError[0]]) this.$refs[firstError[0]].focus();
+    return !firstError;
+  },
     showCentralAlert(message) {
       this.alertMessage = message;
       this.showAlert = true;
@@ -109,32 +156,6 @@ export default {
     acceptTerms() {
       this.form.agreed = true;
       this.showTerms = false;
-    },
-    validateFields() {
-      this.errors = {};
-      const usernamePattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
-
-      if (!/^09\d{8}$/.test(this.form.phone)) {
-        this.errors.phone = '手機格式錯誤，請輸入 09 開頭的 10 碼數字';
-        this.$refs.phone.focus();
-        return false;
-      }
-      if (!this.form.nickname.trim() || this.form.nickname.length > 20) {
-        this.errors.nickname = '暱稱不得為空，且最多 20 字元';
-        this.$refs.nickname.focus();
-        return false;
-      }
-      if (!usernamePattern.test(this.form.username)) {
-        this.errors.username = '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
-        this.$refs.username.focus();
-        return false;
-      }
-      if (!usernamePattern.test(this.form.password)) {
-        this.errors.password = '密碼需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
-        this.$refs.password.focus();
-        return false;
-      }
-      return true;
     },
     async sendVerificationCode() {
       if (!this.validateFields()) return;

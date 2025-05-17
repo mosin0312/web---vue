@@ -245,7 +245,7 @@ export default {
     color: #000;
     font-family: Inter, sans-serif;
     font-size: 20px;
-    font-weight: 500;
+    font-weight: 700;
     margin: 0;
   }
   

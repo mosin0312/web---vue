@@ -1,5 +1,7 @@
 <template>
-    <div class="login-container">
+  <div class="login-container">
+    <div class="modal-container">
+    </div>
       <header class="login-header">
         <img src="@/assets/icons/header-icon.svg" alt="Logo" class="header-icon" />
         <h1 class="home-title">會員登入介面</h1>
@@ -53,17 +55,19 @@
         </div>
         
         <div class="links">
-          <a href="#">忘記密碼?</a>
+          <router-link to="/forget-password">忘記密碼?</router-link>
           <a href="#">忘記帳號?</a>
           <a href="#">訪客登入</a>
         </div>
       </form>
+      <AlertModal :visible="showModal" :message="modalMessage" @close="showModal = false" />
     </div>
   </template>
   
   <script setup>
   import { ref } from 'vue';
   import { useRouter } from 'vue-router';
+  import AlertModal from '@/components/AlertModal.vue' 
   import axios from 'axios';
 
   const username = ref('');
@@ -78,8 +82,14 @@
   const passwordRef = ref(null);
   const emailRef = ref(null);
   const captchaRef = ref(null);
+  const showModal = ref(false)
+  const modalMessage = ref('')
 
 
+  function showAlert(message) {
+  modalMessage.value = message
+  showModal.value = true
+}
   function validateLoginFields() {
   errors.value = {}; // 清除所有錯誤訊息
 
@@ -152,42 +162,45 @@ function validateCaptcha() {
 
   let timer = null;
   
-  function getCode() {
-    if (!email.value) return alert('請輸入 Email');
-    alert('驗證碼已發送');
-    countdown.value = 60;
-    timer = setInterval(() => {
-      countdown.value--;
-      if (countdown.value <= 0) clearInterval(timer);
-    }, 1000);
-  }
+ function getCode() {
+  if (!email.value) return showAlert('請輸入 Email')
+
+  showAlert('驗證碼已發送')
+  countdown.value = 60
+  timer = setInterval(() => {
+    countdown.value--
+    if (countdown.value <= 0) clearInterval(timer)
+  }, 1000)
+}
+
   
-  async function submitForm() {
-  if (!validateLoginFields()) return;
+async function submitForm() {
+  if (!validateLoginFields()) return
 
   try {
     const response = await axios.post('/api/MemberManagement/Login', {
       Login_AccountName: username.value,
       Login_Password: password.value
-    });
+    })
 
     if (response.data.status === 'Success') {
-      alert('登入成功');
+      showAlert('登入成功')
       if (response.data.token && rememberMe.value) {
-        localStorage.setItem('authToken', response.data.token);
+        localStorage.setItem('authToken', response.data.token)
       }
-      router.push('/');
+      router.push('/')
     } else {
-      alert(response.data.message || '登入失敗，請檢查帳號或密碼');
+      showAlert(response.data.message || '登入失敗，請檢查帳號或密碼')
     }
   } catch (error) {
-    alert('登入失敗，伺服器錯誤');
-    console.error(error);
+    showAlert('登入失敗，伺服器錯誤')
+    console.error(error)
   }
 }
 
 function goToRegister() {
-  router.push('/register');
+  console.log('goToRegister 被呼叫了')
+  router.push('/register')
 }
 </script>
   
@@ -226,7 +239,7 @@ function goToRegister() {
     color: #000;
     font-family: Inter, sans-serif;
     font-size: 20px;
-    font-weight: 500;
+    font-weight: 700;
     margin: 0;
   }
   
@@ -256,7 +269,7 @@ function goToRegister() {
   
   input:focus {
     outline: none;
-    border-color: #888;
+    border-color: #5a67d8;
   }
   
   small {
@@ -353,10 +366,13 @@ function goToRegister() {
   padding-left: 4px;
 }
 
-.error-text {
-  color: red;
-  font-size: 12px;
-  padding-left: 4px;
+.modal-container {
+ position: relative;
+  width: 0;
+  height: 0;
+  z-index: 0;
+  pointer-events: none; /* 不會擋住主畫面 */
 }
+
   </style>
   

@@ -138,7 +138,7 @@ const logout = () => router.push('/login')
   cursor: pointer;
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
 
-  display: flex;                /* ✅ 使用 flex 讓文字置中 */
+  display: flex;                /* 讓文字置中 */
   align-items: center;
   justify-content: center;
 }

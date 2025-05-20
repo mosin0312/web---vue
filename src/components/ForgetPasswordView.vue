@@ -19,13 +19,7 @@
       <!-- 帳號欄位 -->
       <div class="form-group">
         <input
-          v-model="account"
-          ref="accountRef"
-          type="text"
-          placeholder="請輸入帳號名稱"
-          maxlength="20"
-          @blur="validateAccount"
-        />
+          v-model="account" ref="accountRef" type="text" placeholder="請輸入帳號名稱"  maxlength="20" @blur="validateAccount" />
         <small :class="errors.account ? 'error-text' : 'hint-text'">
           {{ errors.account || '需含大小寫英數，12-20 位，不含特殊符號' }}
         </small>
@@ -37,7 +31,7 @@
           v-model="password"
           ref="passwordRef"
           type="password"
-          placeholder="請輸入新密碼"
+          placeholder="請輸入密碼"
           maxlength="20"
           @blur="validatePassword"
         />
@@ -47,18 +41,28 @@
       </div>
 
       <!-- Email 欄位 -->
-      <div class="form-group">
-        <input
-          v-model="email"
-          ref="emailRef"
-          type="email"
-          placeholder="請輸入 Email"
-          @blur="validateEmail"
-        />
-        <small :class="errors.email ? 'error-text' : 'hint-text'">
-          {{ errors.email || '請輸入有效的 Email 格式' }}
-        </small>
-      </div>
+      <div class="form-group email-group">
+  <div class="email-row">
+    <input
+      v-model="email"
+      ref="emailRef"
+      type="email"
+      placeholder="請輸入 Email"
+      @blur="validateEmail"
+    />
+    <button
+      class="code-button"
+      type="button"
+      :disabled="isSending"
+      @click="sendCode"
+    >
+      {{ isSending ? countdown + ' 秒' : '獲取驗證碼' }}
+    </button>
+  </div>
+  <small :class="errors.email ? 'error-text' : 'hint-text'">
+    {{ errors.email || '請輸入有效的 Email 格式' }}
+  </small>
+</div>
 
       <!-- 驗證碼區塊 -->
       <div class="form-group verification-group">
@@ -71,21 +75,13 @@
             placeholder="請輸入6位數驗證碼"
             @blur="validateCode"
           />
-          <button
-            class="code-button"
-            type="button"
-            :disabled="isSending"
-            @click="sendCode"
-          >
-            {{ isSending ? countdown + ' 秒' : '獲取驗證碼' }}
-          </button>
         </div>
         <small :class="errors.code ? 'error-text' : 'hint-text'">
           {{ errors.code || '請輸入6位數數字驗證碼' }}
         </small>
       </div>
 
-      <!-- 主送出按鈕 -->
+      <!-- 送出按鈕 -->
       <div class="button-group">
         <button type="submit" class="main-button">驗證身分</button>
         <button type="button" class="main-button" @click="goToLogin">返回登入</button>
@@ -162,12 +158,24 @@ const validateCode = () => {
 
 // 發送驗證碼
 const sendCode = () => {
-  if (!email.value) {
-    errors.value.email = '請先輸入 Email'
-    emailRef.value?.focus()
+  // 先驗證格式
+  validateAccount()
+  validatePassword()
+  validateEmail()
+
+  // 判斷錯誤欄位並收集
+  let missing = []
+  if (errors.value.account) missing.push('帳號')
+  if (errors.value.password) missing.push('密碼')
+  if (errors.value.email) missing.push('Email')
+
+  if (missing.length > 0) {
+    modalMessage.value = `請先正確填寫：${missing.join('、')}`
+    showModal.value = true
     return
   }
 
+  // 所有欄位都正確 → 發送驗證碼
   modalMessage.value = `驗證碼已寄出至 ${email.value}`
   showModal.value = true
 
@@ -294,25 +302,6 @@ input:focus {
   align-items: center;
 }
 
-.code-button {
-  height: 44px;
-  min-width: 100px;
-  padding: 0 12px;
-  font-size: 14px;
-  border: 2px solid #544cbf;
-  border-radius: 20px;
-  background: #544cbf;
-  color: #ffffff;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
-}
-
-.code-button:disabled {
-    background: #eee;
-    cursor: not-allowed;
-    color: #999;
-}
-
 .button-group {
     display: flex;
     justify-content: space-between;
@@ -331,5 +320,44 @@ input:focus {
     color: #ffffff;
     box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
     cursor: pointer;
+}
+
+.email-group {
+  width: 100%;
+}
+
+.email-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.email-row input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #c5c5c5;
+  border-radius: 20px;
+  background-color: #fff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.code-button {
+  height: 44px;
+  min-width: 100px;
+  padding: 0 12px;
+  font-size: 14px;
+  border: 2px solid #544cbf;
+  border-radius: 20px;
+  background: #544cbf;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.code-button:disabled {
+  background: #eee;
+  cursor: not-allowed;
+  color: #999;
 }
 </style>

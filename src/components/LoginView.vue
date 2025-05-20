@@ -56,7 +56,7 @@
         
         <div class="links">
           <router-link to="/forget-password">忘記密碼?</router-link>
-          <a href="#">忘記帳號?</a>
+          <router-link to="/forget-account">忘記帳號?</router-link>
           <a href="#">訪客登入</a>
         </div>
       </form>
@@ -162,10 +162,26 @@ function validateCaptcha() {
 
   let timer = null;
   
- function getCode() {
-  if (!email.value) return showAlert('請輸入 Email')
+function getCode() {
+  // 執行欄位驗證
+  validateUsername()
+  validatePassword()
+  validateEmail()
 
-  showAlert('驗證碼已發送')
+  // 收集錯誤欄位
+  const missing = []
+  if (errors.value.username) missing.push('帳號')
+  if (errors.value.password) missing.push('密碼')
+  if (errors.value.email) missing.push('Email')
+
+  // 若有錯誤，不發送驗證碼
+  if (missing.length > 0) {
+    showAlert(`請先正確填寫：${missing.join('、')}`)
+    return
+  }
+
+  // 所有欄位正確 → 發送驗證碼
+  showAlert(`驗證碼已發送至 ${email.value}`)
   countdown.value = 60
   timer = setInterval(() => {
     countdown.value--

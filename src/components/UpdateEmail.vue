@@ -105,8 +105,8 @@ function confirm() {
 <style scoped>
 .main-container {
   width: 100%;
-  max-width: 360px;
   height: 100vh;
+  max-width: 100%;
   font-family: 'Inter', sans-serif;
   background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
   display: flex;

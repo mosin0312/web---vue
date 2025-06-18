@@ -217,29 +217,29 @@ const submitForm = () => {
 <style scoped>
 .main-container {
   width: 100%;
-    max-width: 360px;
-    height: 100vh;
-    font-family: 'Inter', sans-serif;
-    background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0 16px;
-    box-sizing: border-box;
-    position: absolute;
-    inset: 0;
-    z-index: 30;
+  height: 100vh;
+  max-width: 100%;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px;
+  box-sizing: border-box;
+  position: absolute;
+  inset: 0;
+  z-index: 30;
 }
 
 .title-header {
-    display: flex;
-    width: 100%;
-    height: 40px;
-    padding: 0 21px;
-    justify-content: flex-start; /*調整標題文字位置*/
-    align-items: center;
-    gap: 10px;
-    background-color: #fff;
+  display: flex;
+  width: 100%;
+  height: 40px;
+  padding: 0 21px;
+  justify-content: flex-start; /*調整標題文字位置*/
+  align-items: center;
+  gap: 10px;
+  background-color: #fff;
 }
 
 .header-icon {
@@ -248,35 +248,35 @@ const submitForm = () => {
 }
 
 .page-title {
-    color: #000;
-    font-family: Inter, sans-serif;
-    font-size: 20px;
-    font-weight: 700;
-    margin: 0;
+  color: #000;
+  font-family: Inter, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
 }
 
 .login-form {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding-top: 16px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 16px;
 }
 
 .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 input {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #c5c5c5;
-    border-radius: 20px;
-    background-color: #fff;
-    font-size: 14px;
-    box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #c5c5c5;
+  border-radius: 20px;
+  background-color: #fff;
+  font-size: 14px;
+  box-sizing: border-box;
 }
 
 input:focus {
@@ -310,16 +310,16 @@ input:focus {
 }
 
 .main-button {
-    flex: 1;
-    padding: 14px;
-    font-size: 16px;
-    font-weight: bold;
-    border: none;
-    border-radius: 20px;
-    background: #5a67d8;
-    color: #ffffff;
-    box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
-    cursor: pointer;
+  flex: 1;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 20px;
+  background: #5a67d8;
+  color: #ffffff;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
 }
 
 .email-group {

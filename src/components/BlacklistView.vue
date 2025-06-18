@@ -6,14 +6,12 @@
     </header>
 
     <div class="filters">
-      <!-- 黑名單種類 -->
-      <select v-model="selectedType" @click="onTypeClick" @change="onTypeChange">
+      <select v-model="selectedType" @change="onTypeChange">
         <option value="">選擇黑名單種類</option>
         <option value="公開">公開</option>
         <option value="未公開">未公開</option>
       </select>
 
-      <!-- 原因 -->
       <select v-model="selectedReason" :disabled="filteredReasons.length === 0">
         <option value="">選擇原因</option>
         <option v-for="reason in filteredReasons" :key="reason" :value="reason">
@@ -22,7 +20,6 @@
       </select>
     </div>
 
-    <!-- 黑名單列表 -->
     <div class="blacklist-card" v-for="item in filteredList" :key="item.id">
       <img src="@/assets/icons/avatar.svg" class="avatar" />
       <div class="info">
@@ -31,21 +28,50 @@
         <p class="reason">原因：{{ item.reason }}</p>
       </div>
       <div class="actions">
-        <button class="edit" @click="editItem(item)">編輯</button>
+        <button class="edit" @click="openEdit(item)">編輯</button>
         <button class="delete" @click="deleteItem(item.id)">刪除</button>
+      </div>
+    </div>
+
+    <!-- 編輯彈窗 -->
+    <div v-if="editModalVisible" class="modal-backdrop">
+      <div class="modal">
+        <h3>編輯黑名單</h3>
+        <!-- 顯示電話號碼 -->
+        <p class="modal-phone">{{ editForm.phone }}</p>
+
+        <label>
+          類型：
+          <select v-model="editForm.isPublic">
+            <option :value="true">公開</option>
+            <option :value="false">未公開</option>
+          </select>
+        </label>
+
+        <label>
+          原因：
+          <select v-model="editForm.reason">
+            <option v-for="reason in editReasons" :key="reason" :value="reason">{{ reason }}</option>
+          </select>
+        </label>
+
+        <div class="modal-actions">
+          <button class="save" @click="saveEdit">儲存</button>
+          <button class="cancel" @click="editModalVisible = false">取消</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const selectedType = ref('')
 const selectedReason = ref('')
-const lastSelectedType = ref('')
+const editModalVisible = ref(false)
+const editingItemId = ref(null)
 
-// 黑名單資料
 const blacklist = ref([
   { id: 1, phone: '0912-345-678', isPublic: true, reason: '詐騙' },
   { id: 2, phone: '0987-111-111', isPublic: true, reason: '推銷或廣告' },
@@ -54,29 +80,19 @@ const blacklist = ref([
   { id: 5, phone: '0966-666-666', isPublic: true, reason: '一接就掛' }
 ])
 
-// 原因清單
 const publicReasons = ['一接就掛', '詐騙', '推銷或廣告', '騷擾', '其他']
 const privateReasons = ['舊情人', '家庭內部衝突', '語言不通無法溝通', '個人情感問題', '其他']
 
-// 根據種類篩選對應的原因
 const filteredReasons = computed(() => {
   if (selectedType.value === '公開') return publicReasons
   if (selectedType.value === '未公開') return privateReasons
   return []
 })
 
-// 下拉選單被「點擊」時也會重設原因（即使選同樣的值）
-const onTypeClick = () => {
-  selectedReason.value = ''
-}
-
-// 選擇完種類後更新狀態
 const onTypeChange = () => {
   selectedReason.value = ''
-  lastSelectedType.value = selectedType.value
 }
 
-// 過濾列表
 const filteredList = computed(() => {
   return blacklist.value.filter(item => {
     const typeMatch = !selectedType.value || item.isPublic === (selectedType.value === '公開')
@@ -85,28 +101,55 @@ const filteredList = computed(() => {
   })
 })
 
-const editItem = (item) => {
-  alert(`編輯：${item.phone}`)
+// 編輯表單
+const editForm = ref({ isPublic: true, reason: '' })
+
+const openEdit = (item) => {
+  editingItemId.value = item.id
+  editForm.value = {
+    phone: item.phone,
+    isPublic: item.isPublic,
+    reason: item.reason
+  }
+  editModalVisible.value = true
+}
+
+const saveEdit = () => {
+  const idx = blacklist.value.findIndex(i => i.id === editingItemId.value)
+  if (idx !== -1) {
+    blacklist.value[idx].isPublic = editForm.value.isPublic
+    blacklist.value[idx].reason = editForm.value.reason
+  }
+  editModalVisible.value = false
 }
 
 const deleteItem = (id) => {
   blacklist.value = blacklist.value.filter(item => item.id !== id)
 }
+
+// 根據 isPublic 切換原因選項
+const editReasons = computed(() => {
+  return editForm.value.isPublic ? publicReasons : privateReasons
+})
+
+watch(() => editForm.value.isPublic, () => {
+  if (!editReasons.value.includes(editForm.value.reason)) {
+    editForm.value.reason = ''
+  }
+})
 </script>
 
 <style scoped>
 .blacklist-container {
   width: 100%;
-  max-width: 360px;
   height: 100vh;
+  max-width: 100%;
   font-family: 'Inter', sans-serif;
   background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 0 16px;
-  box-sizing: border-box;
-  position: relative;
   overflow-y: auto;
 }
 
@@ -115,11 +158,10 @@ const deleteItem = (id) => {
   width: 100%;
   height: 48px;
   padding: 0 16px;
-  justify-content: flex-start;
   align-items: center;
   gap: 10px;
-  background-color: #fff;
-  border-bottom: 1px solid #ddd;
+  background: #fff;
+  border-bottom: 1px solid #ccc;
 }
 
 .header-icon {
@@ -136,17 +178,9 @@ const deleteItem = (id) => {
 
 .filters select {
   flex: 1;
-  padding: 8px 12px;
+  padding: 8px;
   border-radius: 8px;
-  border: 1px solid #bbb;
-  background-color: #fff;
-  font-size: 14px;
-  color: #333;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 16px;
+  border: 1px solid #ccc;
 }
 
 .blacklist-card {
@@ -154,10 +188,10 @@ const deleteItem = (id) => {
   align-items: center;
   width: 100%;
   background: #fff;
-  margin-bottom: 12px;
   padding: 12px;
-  border-radius: 12px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
+  margin-bottom: 12px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
 .avatar {
@@ -165,8 +199,6 @@ const deleteItem = (id) => {
   height: 44px;
   border-radius: 50%;
   margin-right: 12px;
-  object-fit: cover;
-  border: 1px solid #eee;
 }
 
 .info {
@@ -175,48 +207,96 @@ const deleteItem = (id) => {
 
 .phone {
   font-size: 15px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 4px;
+  font-weight: bold;
 }
 
 .visibility,
 .reason {
   font-size: 13px;
-  color: #777;
-  line-height: 1.3;
+  color: #555;
 }
 
 .actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-left: 8px;
+  gap: 4px;
 }
 
-.edit,
-.delete {
-  font-size: 13px;
+.edit, .delete {
   padding: 6px 10px;
+  font-size: 13px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: 0.2s ease;
 }
 
 .edit {
-  background-color: #e0f0ff;
+  background: #e0f0ff;
   color: #007bff;
-}
-.edit:hover {
-  background-color: #d0e8ff;
 }
 
 .delete {
-  background-color: #ffe0e0;
-  color: #dc3545;
+  background: #ffe0e0;
+  color: #d00;
 }
-.delete:hover {
-  background-color: #fdd0d0;
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.modal {
+  background: #fff;
+  padding: 20px;
+  width: 300px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal label {
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal select {
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.save {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.cancel {
+  background: #ccc;
+  color: #333;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 </style>

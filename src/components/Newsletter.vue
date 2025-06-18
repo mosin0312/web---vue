@@ -5,60 +5,57 @@
       <span class="title">簡訊</span>
     </header>
 
-    <div class="frame">
-      <div class="sms-category-options">
-        <button
-          class="button-sms-category"
-          :class="{ active: selectedCategory === 'general' }"
-          @click="switchCategory('general')"
-        >
-          一般簡訊
-        </button>
-        <button
-          class="button-sms-category"
-          :class="{ active: selectedCategory === 'stranger' }"
-          @click="switchCategory('stranger')"
-        >
-          陌生簡訊
-        </button>
-        <button
-          class="button-sms-category"
-          :class="{ active: selectedCategory === 'screenshot' }"
-          @click="switchCategory('screenshot')"
-        >
-          截圖分析
-        </button>
-      </div>
+    <!-- 分類按鈕 -->
+    <div class="sms-category-options">
+      <button
+        :class="['button-sms-category', selectedCategory === 'general' ? 'active' : '']"
+        @click="changeCategory('general')"
+      >
+        一般簡訊
+      </button>
+      <button
+        :class="['button-sms-category', selectedCategory === 'strange' ? 'active' : '']"
+        @click="changeCategory('strange')"
+      >
+        陌生簡訊
+      </button>
+      <button
+        :class="['button-sms-category', selectedCategory === 'screenshot' ? 'active' : '']"
+        @click="changeCategory('screenshot')"
+      >
+        截圖分析
+      </button>
+    </div>
 
-      <div class="newsletter-logs">
-        <div
-          v-for="(sms, index) in filteredSmsList"
-          :key="index"
-          :class="['sms-card', sms.read ? 'read' : 'unread']"
-          @click="markAsReadAndNavigate(sms.phone)"
-        >
-          <div class="sms-left">
-            <div class="avatar" :style="{ backgroundImage: `url(${sms.avatarUrl})` }"></div>
-            <div class="icon">
-              <img :src="sms.iconUrl" alt="icon" />
-            </div>
-            <div class="text-block">
-              <div class="phone-risk">
-                <span class="phone">{{ sms.phone }}</span>
-                <div class="risk-inline">
-                  <img class="risk-icon" :src="getRiskIcon(sms.risk)" :alt="sms.risk" />
-                  <span class="risk-reason">{{ sms.riskText }}</span>
-                </div>
-              </div>
-              <span class="message">{{ sms.message }}</span>
-            </div>
+    <!-- 簡訊列表 -->
+    <div class="newsletter-logs">
+      <div
+        v-for="(sms, index) in filteredSmsList"
+        :key="index"
+        :class="['sms-card', sms.read ? 'read' : 'unread']"
+        @click="markAsReadAndNavigate(sms.phone)"
+      >
+        <div class="sms-left">
+          <div class="avatar" :style="{ backgroundImage: `url(${sms.avatarUrl})` }"></div>
+          <div class="icon">
+            <img :src="sms.iconUrl" alt="icon" />
           </div>
-
-          <div class="sms-right">
-            <div class="meta">
-              <span class="date">{{ sms.date }}</span>
-              <span v-if="isUnread(sms.phone)" class="badge">1</span>
+          <div class="text-block">
+            <div class="phone-risk">
+              <span class="phone">{{ sms.phone }}</span>
+              <div class="risk-inline">
+                <img class="risk-icon" :src="getRiskIcon(sms.risk)" :alt="sms.risk" />
+                <span class="risk-reason">{{ sms.riskText }}</span>
+              </div>
             </div>
+            <span class="message">{{ sms.message }}</span>
+          </div>
+        </div>
+
+        <div class="sms-right">
+          <div class="meta">
+            <span class="date">{{ sms.date }}</span>
+            <span v-if="isUnread(sms.phone)" class="badge">1</span>
           </div>
         </div>
       </div>
@@ -98,7 +95,7 @@ const fallbackList = [
     iconUrl: require('@/assets/icons/property-commercial.svg'),
     risk: 'high',
     riskText: '高',
-    category: 'stranger'
+    category: 'strange'
   },
   {
     phone: '0932-456-789',
@@ -136,6 +133,13 @@ onMounted(async () => {
   }
 })
 
+const changeCategory = (category) => {
+  selectedCategory.value = category
+  if (category === 'screenshot') {
+    router.push('/screenshot') // 或你指定的截圖分析頁面
+  }
+}
+
 const getRiskIcon = (risk) => {
   switch (risk) {
     case 'low': return require('@/assets/icons/risk-low.svg')
@@ -160,33 +164,21 @@ const markAsReadAndNavigate = (phone) => {
   }
   router.push(`/chat?phone=${phone}`)
 }
-
-const switchCategory = (category) => {
-  selectedCategory.value = category
-
-  if (category === 'screenshot') {
-    router.push('/screenshot') // 將這行改成你設定的路由 path
-  }
-}
 </script>
 
 <style scoped>
 .main-container {
   width: 100%;
   height: 100vh;
-  max-width: 100%;
-  margin: 0 auto;
   background: linear-gradient(180deg, #f9d4e0, #ffffff);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 .header {
-  height: 40px;
   background: #fff;
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 10px 16px;
   gap: 10px;
 }
 .header-icon {
@@ -194,8 +186,8 @@ const switchCategory = (category) => {
   height: 28px;
 }
 .title {
-  font-weight: bold;
   font-size: 18px;
+  font-weight: bold;
 }
 .sms-category-options {
   display: flex;
@@ -204,12 +196,20 @@ const switchCategory = (category) => {
   margin: 10px 0;
 }
 .button-sms-category {
-  padding: 4px 10px;
+  padding: 6px 14px;
+  border-radius: 100px;
   border: 2px solid #84aacf;
-  border-radius: 20px;
-  background: #b7eaff;
-  font-size: 14px;
+  background: #e0f2ff;
+  color: #333;
+  font-weight: 500;
+  font-family: "irohamaru", sans-serif;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+.button-sms-category.active {
+  background: #84aacf;
+  color: white;
+  border-color: #3e6c9e;
 }
 .newsletter-logs {
   flex: 1;
@@ -220,10 +220,10 @@ const switchCategory = (category) => {
   gap: 8px;
 }
 .sms-card {
-  background: #fff;
+  background: white;
   border-radius: 14px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   padding: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   display: flex;
   justify-content: space-between;
 }
@@ -259,6 +259,10 @@ const switchCategory = (category) => {
   align-items: center;
   gap: 4px;
 }
+.risk-icon {
+  width: 16px;
+  height: 16px;
+}
 .risk-reason {
   font-size: 10px;
   color: #666;
@@ -270,10 +274,8 @@ const switchCategory = (category) => {
 .message {
   font-size: 10px;
   color: #333;
-  white-space: normal;
   word-break: break-word;
   line-height: 1.4;
-  max-width: calc(100vw - 160px);
 }
 .sms-right {
   text-align: right;
@@ -283,9 +285,9 @@ const switchCategory = (category) => {
   align-items: flex-end;
   min-width: 50px;
 }
-.risk-icon {
-  width: 16px;
-  height: 16px;
+.date {
+  font-size: 10px;
+  margin-top: 4px;
 }
 .badge {
   background: #b3261e;
@@ -297,10 +299,6 @@ const switchCategory = (category) => {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 4px;
-}
-.date {
-  font-size: 10px;
   margin-top: 4px;
 }
 </style>

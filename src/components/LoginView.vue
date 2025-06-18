@@ -33,6 +33,13 @@
   <small :class="errors.email ? 'error-text' : 'hint-text'">
     {{ errors.email || '請輸入有效的 Email 格式' }}
   </small>
+
+
+<!--測試跳轉用，之後刪掉 -->
+<button @click="$router.push('/chat')" class="test-btn">
+  測試跳轉到 ChatMessage.vue
+</button>
+<!--測試跳轉用，之後刪掉 -->
 </div>
 
         <div class="form-group">
@@ -390,5 +397,18 @@ function goToRegister() {
   pointer-events: none; /* 不會擋住主畫面 */
 }
 
+
+
+/**測試跳轉用，之後刪掉 */
+.test-btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #007aff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+/**測試跳轉用，之後刪掉 */
   </style>
   

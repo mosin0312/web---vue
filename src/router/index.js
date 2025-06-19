@@ -8,8 +8,9 @@ import Newsletter from '@/components/Newsletter.vue'
 import ChatMessage from '@/components/ChatMessage.vue'
 import WebPreview from '@/components/WebPreview.vue'
 import ScreenshotAnalysis from '@/components/ScreenshotAnalysis.vue'
-
-
+import AntiFraudHelpline from '@/components/AntiFraudHelpline.vue'
+import CommonFraudMethods from '@/components/CommonFraudMethods.vue'
+import AntifraudPomotion from '@/components/AntifraudPomotion.vue'
 
 const routes = [
   { path: '/', component: LoginView },
@@ -20,7 +21,10 @@ const routes = [
   { path: '/newsletter',component: Newsletter},
   { path: '/chat', component: ChatMessage },
   { path: '/preview', component: WebPreview },
-  {path: '/screenshot',component:ScreenshotAnalysis}
+  {path: '/screenshot',component:ScreenshotAnalysis},
+  {path: '/anti-fraud-helpline',component:AntiFraudHelpline},
+  {path: '/common-fraud-methods',component:CommonFraudMethods},
+  {path: '/anti-fraud-pomption',component:AntifraudPomotion}
 ]
 
 const router = createRouter({

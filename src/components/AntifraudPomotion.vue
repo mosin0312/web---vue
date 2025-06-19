@@ -8,11 +8,11 @@
 
     <!-- 防詐項目 -->
     <div class="icon-list">
-      <div class="icon-row">
+      <div class="icon-row" @click="goTo('/anti-fraud-helpline')">
         <img src="@/assets/icons/Anti-fraud hotline.svg" class="icon-image" alt="防詐專線" />
         <span class="icon-label">防詐專線</span>
       </div>
-      <div class="icon-row">
+      <div class="icon-row" @click="goTo('/common-fraud-methods')">
         <img src="@/assets/icons/Common fraud methods.svg" class="icon-image" alt="常見詐騙手法" />
         <span class="icon-label">常見詐騙手法</span>
       </div>
@@ -21,6 +21,13 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+function goTo(path) {
+  router.push(path)
+}
 </script>
 
 <style scoped>
@@ -86,6 +93,11 @@
   width: 320px;
   box-sizing: border-box;
   gap: 20px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.icon-row:hover {
+  transform: scale(1.02);
 }
 
 .icon-image {

@@ -1,16 +1,3 @@
-<!-- App.vue -->
 <template>
-  <div id="app">
-    <CommonFraudMethods />
-  </div>
+  <router-view />
 </template>
-
-<script>
-import CommonFraudMethods from './components/CommonFraudMethods.vue';
-
-export default {
-  components: {
-    CommonFraudMethods
-  }
-};
-</script>

@@ -40,6 +40,13 @@
   測試跳轉到 ChatMessage.vue
 </button>
 <!--測試跳轉用，之後刪掉 -->
+
+<!--測試跳轉用，之後刪掉 -->
+<button @click="$router.push('/anti-fraud-pomption')" class="test-btn">
+  測試跳轉到 AntifraudPomotion.vue
+</button>
+<!--測試跳轉用，之後刪掉 -->
+
 </div>
 
         <div class="form-group">

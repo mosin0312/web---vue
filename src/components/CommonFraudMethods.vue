@@ -2,7 +2,7 @@
   <div class="main-container">
     <!-- Header -->
     <header class="header">
-      <img src="@/assets/icons/header-icon.svg" alt="Logo" class="header-icon" />
+      <img src="@/assets/icons/comeback.svg" alt="Logo" class="header-icon" @click="goBack"/>
       <span class="header-title">常見詐騙手法</span>
     </header>
 
@@ -60,6 +60,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
+
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+const goBack = () => {
+  router.back()
+}
 
 const selectedCategory = ref('store');
 const showModal = ref(false);
@@ -136,8 +143,8 @@ const handleReadMore = (item) => {
 }
 
 .header-icon {
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
   margin-right: 10px;
 }
 

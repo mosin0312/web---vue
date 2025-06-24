@@ -51,10 +51,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
-  min-height: 100vh;
-  margin: 0;
+  width: 360px;
+  height: 800px;
+  margin: 0 auto;
   background: linear-gradient(180deg, #ffcbb3, #ffffff);
+  overflow-y: auto;
   font-family: Inter, sans-serif;
 }
 
@@ -86,14 +87,11 @@
 }
 
 .frame {
-  width: 100%;
-  max-width: 900px;
-  padding: 0 16px;
+  width: 90%;
   display: flex;
   flex-direction: column;
   gap: 20px;
   margin-top: 20px;
-  box-sizing: border-box;
 }
 
 .input-group {
@@ -113,7 +111,6 @@
   border-radius: 6px;
   font-size: 14px;
   width: 100%;
-  box-sizing: border-box;
 }
 
 .textarea {

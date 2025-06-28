@@ -11,6 +11,9 @@ import ScreenshotAnalysis from '@/components/ScreenshotAnalysis.vue'
 import AntiFraudHelpline from '@/components/AntiFraudHelpline.vue'
 import CommonFraudMethods from '@/components/CommonFraudMethods.vue'
 import AntifraudPomotion from '@/components/AntifraudPomotion.vue'
+import MemberManagementView from '@/components/MemberManagementView.vue'
+import ModifyNicknameView from '@/component/ModifyNicknameView.vue'
+import ModifyPasswordView from '@/components/ModifyPasswordView.vue'
 
 const routes = [
   { path: '/', component: LoginView },
@@ -25,6 +28,10 @@ const routes = [
   {path: '/anti-fraud-helpline',component:AntiFraudHelpline},
   {path: '/common-fraud-methods',component:CommonFraudMethods},
   {path: '/anti-fraud-pomption',component:AntifraudPomotion},
+  {path: '/member-management',component:MemberManagementView},
+  {path: '/modify-nickname',component:ModifyNicknameView},
+  {path: '/modify-password',component:ModifyPasswordView}
+
 ]
 
 const router = createRouter({

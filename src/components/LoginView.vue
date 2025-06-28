@@ -59,6 +59,11 @@
           <router-link to="/forget-account">忘記帳號?</router-link>
           <a href="#">訪客登入</a>
         </div>
+        <!--測試跳轉用，之後刪掉 -->
+<button @click="$router.push('/member-management')" class="test-btn">
+  測試跳轉到 MemberManagementView.vue
+</button>
+<!--測試跳轉用，之後刪掉 -->
       </form>
       <AlertModal :visible="showModal" :message="modalMessage" @close="showModal = false" />
     </div>
@@ -384,7 +389,17 @@ async function submitForm() {
   pointer-events: none; /* 不會擋住主畫面 */
 }
 
-
+/**測試跳轉用，之後刪掉 */
+.test-btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #007aff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+/**測試跳轉用，之後刪掉 */
 
 
   </style>

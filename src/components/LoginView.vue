@@ -33,20 +33,6 @@
   <small :class="errors.email ? 'error-text' : 'hint-text'">
     {{ errors.email || '請輸入有效的 Email 格式' }}
   </small>
-
-
-<!--測試跳轉用，之後刪掉 -->
-<button @click="$router.push('/chat')" class="test-btn">
-  測試跳轉到 ChatMessage.vue
-</button>
-<!--測試跳轉用，之後刪掉 -->
-
-<!--測試跳轉用，之後刪掉 -->
-<button @click="$router.push('/anti-fraud-pomption')" class="test-btn">
-  測試跳轉到 AntifraudPomotion.vue
-</button>
-<!--測試跳轉用，之後刪掉 -->
-
 </div>
 
         <div class="form-group">
@@ -78,34 +64,34 @@
     </div>
   </template>
   
-  <script setup>
-  import { ref } from 'vue';
-  import { useRouter } from 'vue-router';
-  import AlertModal from '@/components/AlertModal.vue' 
-  import axios from 'axios';
+<script setup>
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import AlertModal from '@/components/AlertModal.vue';
+import api from '@/api'; // 使用封裝好的 axios instance
 
-  const username = ref('');
-  const password = ref('');
-  const email = ref('');
-  const captcha = ref('');
-  const rememberMe = ref(false);
-  const countdown = ref(0);
-  const router = useRouter();
-  const errors = ref({});
-  const usernameRef = ref(null);
-  const passwordRef = ref(null);
-  const emailRef = ref(null);
-  const captchaRef = ref(null);
-  const showModal = ref(false)
-  const modalMessage = ref('')
+const username = ref('');
+const password = ref('');
+const email = ref('');
+const captcha = ref('');
+const rememberMe = ref(false);
+const countdown = ref(0);
+const router = useRouter();
+const errors = ref({});
+const usernameRef = ref(null);
+const passwordRef = ref(null);
+const emailRef = ref(null);
+const captchaRef = ref(null);
+const showModal = ref(false);
+const modalMessage = ref('');
 
-
-  function showAlert(message) {
-  modalMessage.value = message
-  showModal.value = true
+function showAlert(message) {
+  modalMessage.value = message;
+  showModal.value = true;
 }
-  function validateLoginFields() {
-  errors.value = {}; // 清除所有錯誤訊息
+
+function validateLoginFields() {
+  errors.value = {};
 
   const usernamePattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -140,98 +126,92 @@
 
 function validateUsername() {
   const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
-  if (!pattern.test(username.value)) {
-    errors.value.username = '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
-  } else {
-    errors.value.username = '';
-  }
+  errors.value.username = pattern.test(username.value) ? '' : '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
 }
 
 function validatePassword() {
   const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
-  if (!pattern.test(password.value)) {
-    errors.value.password = '密碼需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
-  } else {
-    errors.value.password = '';
-  }
+  errors.value.password = pattern.test(password.value) ? '' : '密碼需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
 }
 
 function validateEmail() {
   const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!pattern.test(email.value)) {
-    errors.value.email = '請輸入有效的 Email 格式';
-  } else {
-    errors.value.email = '';
-  }
+  errors.value.email = pattern.test(email.value) ? '' : '請輸入有效的 Email 格式';
 }
 
 function validateCaptcha() {
   const pattern = /^\d{6}$/;
-  if (!pattern.test(captcha.value)) {
-    errors.value.captcha = '驗證碼需為 6 位數字';
-  } else {
-    errors.value.captcha = '';
-  }
+  errors.value.captcha = pattern.test(captcha.value) ? '' : '驗證碼需為 6 位數字';
 }
 
-  let timer = null;
-  
-function getCode() {
-  // 執行欄位驗證
-  validateUsername()
-  validatePassword()
-  validateEmail()
+let timer = null;
 
-  // 收集錯誤欄位
-  const missing = []
-  if (errors.value.username) missing.push('帳號')
-  if (errors.value.password) missing.push('密碼')
-  if (errors.value.email) missing.push('Email')
+async function getCode() {
+  validateUsername();
+  validatePassword();
+  validateEmail();
 
-  // 若有錯誤，不發送驗證碼
+  const missing = [];
+  if (errors.value.username) missing.push('帳號');
+  if (errors.value.password) missing.push('密碼');
+  if (errors.value.email) missing.push('Email');
+
   if (missing.length > 0) {
-    showAlert(`請先正確填寫：${missing.join('、')}`)
-    return
+    showAlert(`請先正確填寫：${missing.join('、')}`);
+    return;
   }
-
-  // 所有欄位正確 → 發送驗證碼
-  showAlert(`驗證碼已發送至 ${email.value}`)
-  countdown.value = 60
-  timer = setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) clearInterval(timer)
-  }, 1000)
-}
-
-  
-async function submitForm() {
-  if (!validateLoginFields()) return
 
   try {
-    const response = await axios.post('/api/MemberManagement/Login', {
-      Login_AccountName: username.value,
-      Login_Password: password.value
-    })
+    const response = await api.post('/api/MemberManagement/LoginverificationCode', {
+      Register_AccountName: username.value,
+      Register_Password: password.value,
+      Register_Email: email.value,
+    });
 
     if (response.data.status === 'Success') {
-      showAlert('登入成功')
-      if (response.data.token && rememberMe.value) {
-        localStorage.setItem('authToken', response.data.token)
-      }
-      router.push('/')
+      showAlert(`驗證碼已發送至 ${email.value}`);
+      countdown.value = 60;
+      timer = setInterval(() => {
+        countdown.value--;
+        if (countdown.value <= 0) clearInterval(timer);
+      }, 1000);
     } else {
-      showAlert(response.data.message || '登入失敗，請檢查帳號或密碼')
+      showAlert(response.data.message || '發送驗證碼失敗');
     }
   } catch (error) {
-    showAlert('登入失敗，伺服器錯誤')
-    console.error(error)
+    showAlert('發送驗證碼失敗，請稍後再試');
+    console.error(error);
   }
 }
 
 function goToRegister() {
-  console.log('goToRegister 被呼叫了')
-  router.push('/register')
+  router.push('/register');
 }
+
+async function submitForm() {
+  if (!validateLoginFields()) return;
+
+  try {
+    const response = await api.post('/api/MemberManagement/Login', {
+      Login_AccountName: username.value,
+      Login_Password: password.value,
+      Login_Email: email.value,
+      Login_VerifyCode: captcha.value,
+    });
+
+    if (response.data.status === 'Success') {
+      localStorage.setItem('userToken', response.data.token); // 儲存登入後的 Token
+      showAlert('登入成功！');
+      router.push('/home'); // 可根據實際跳轉路由調整
+    } else {
+      showAlert(response.data.message || '登入失敗');
+    }
+  } catch (error) {
+    console.error(error);
+    showAlert('登入發生錯誤');
+  }
+}
+
 </script>
   
   <style scoped>
@@ -406,16 +386,6 @@ function goToRegister() {
 
 
 
-/**測試跳轉用，之後刪掉 */
-.test-btn {
-  margin-top: 20px;
-  padding: 10px 20px;
-  background-color: #007aff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-/**測試跳轉用，之後刪掉 */
+
   </style>
   

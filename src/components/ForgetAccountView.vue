@@ -77,8 +77,15 @@
 
 <script setup>
 import { ref } from 'vue'
-import AlertModal from '@/components/AlertModal.vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
+import AlertModal from '@/components/AlertModal.vue'
+
+// 固定訪客 Token
+const guestToken =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s'
+
+const router = useRouter()
 const phone = ref('')
 const email = ref('')
 const code = ref('')
@@ -88,84 +95,119 @@ const isSending = ref(false)
 const countdown = ref(60)
 let timer = null
 
-const router = useRouter()
-const goToLogin = () => router.push('/')
-
-// 顯示 alertModal
-const showAlert = (message) => {
-  modalMessage.value = message
-  showModal.value = true
-}
-
 const errors = ref({
   phone: '',
   email: '',
   code: ''
 })
 
+const showAlert = (message) => {
+  modalMessage.value = message
+  showModal.value = true
+}
+
 const validatePhone = () => {
   const pattern = /^09\d{8}$/
-  errors.value.phone = pattern.test(phone.value)
-    ? ''
-    : '手機號碼格式錯誤（須為09開頭的10位數）'
+  errors.value.phone = pattern.test(phone.value) ? '' : '手機號碼格式錯誤（須為09開頭的10位數）'
 }
 
 const validateEmail = () => {
   const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  errors.value.email = pattern.test(email.value)
-    ? ''
-    : 'Email 格式錯誤'
+  errors.value.email = pattern.test(email.value) ? '' : 'Email 格式錯誤'
 }
 
 const validateCode = () => {
   const pattern = /^\d{6}$/
-  errors.value.code = pattern.test(code.value)
-    ? ''
-    : '驗證碼須為 6 位數字'
+  errors.value.code = pattern.test(code.value) ? '' : '驗證碼須為 6 位數字'
 }
 
-// 發送驗證碼按鈕邏輯
-const sendCode = () => {
+// 發送驗證碼
+const sendCode = async () => {
   validatePhone()
   validateEmail()
 
-  const missing = []
-  if (errors.value.phone) missing.push('手機')
-  if (errors.value.email) missing.push('Email')
-
-  if (missing.length > 0) {
+  if (errors.value.phone || errors.value.email) {
+    const missing = []
+    if (errors.value.phone) missing.push('手機')
+    if (errors.value.email) missing.push('Email')
     showAlert(`請先正確填寫：${missing.join('、')}`)
     return
   }
 
-  showAlert(`驗證碼已寄出至 ${email.value}`)
-  isSending.value = true
-  countdown.value = 60
-  timer = setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) {
-      clearInterval(timer)
-      isSending.value = false
+  try {
+    const res = await axios.post(
+      '/api/MemberManagement/VerifyForgetAccountCode',
+      { SentEmail: email.value },
+      {
+        headers: {
+          Authorization: `Bearer ${guestToken}`
+        }
+      }
+    )
+
+    if (res.data.status === 'Success') {
+      showAlert(`驗證碼已寄出至 ${email.value}`)
+      isSending.value = true
+      countdown.value = 60
+      timer = setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) {
+          clearInterval(timer)
+          isSending.value = false
+        }
+      }, 1000)
+    } else {
+      showAlert(res.data.message)
     }
-  }, 1000)
+  } catch (err) {
+    showAlert('發送驗證碼失敗，請稍後再試')
+  }
 }
 
-const submitForm = () => {
+// 驗證身分送出表單
+const submitForm = async () => {
   validatePhone()
   validateEmail()
   validateCode()
 
-  const missing = []
-  if (errors.value.phone) missing.push('手機')
-  if (errors.value.email) missing.push('Email')
-  if (errors.value.code) missing.push('驗證碼')
-
-  if (missing.length > 0) {
+  if (errors.value.phone || errors.value.email || errors.value.code) {
+    const missing = []
+    if (errors.value.phone) missing.push('手機')
+    if (errors.value.email) missing.push('Email')
+    if (errors.value.code) missing.push('驗證碼')
     showAlert(`請先正確填寫：${missing.join('、')}`)
     return
   }
 
-  showAlert('驗證成功')
+  try {
+    const res = await axios.post(
+      '/api/MemberManagement/ForgetAccount',
+      {
+        forgetAccount_PhoneNumber: phone.value,
+        //forgetAccount_PhoneNumber: phone.value.replace(/^09/, '9'), // 去掉前面0
+        forgetAccount_Email: email.value,
+        forgetAccount_VerificationCode: code.value
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${guestToken}`
+        }
+      }
+    )
+
+    if (res.data.status === 'Success') {
+      showAlert(res.data.message)
+      // 如需跳轉登入頁可在這裡加入 router.push('/')
+    } else {
+      showAlert(res.data.message || '驗證失敗')
+    }
+  } catch (err) {
+    showAlert('驗證失敗，請稍後再試')
+  }
+}
+
+const goToLogin = () => {
+  router.push('/')
 }
 </script>
 

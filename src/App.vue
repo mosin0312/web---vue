@@ -1,16 +1,3 @@
-<!-- App.vue -->
 <template>
-  <div id="app">
-    <SuspectedFraudInformation />
-  </div>
+  <router-view />
 </template>
-
-<script>
-import SuspectedFraudInformation from './components/SuspectedFraudInformation.vue';
-
-export default {
-  components: {
-    SuspectedFraudInformation
-  }
-};
-</script>

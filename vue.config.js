@@ -11,11 +11,11 @@ module.exports = {
         target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
-      "/api": {
-        target: "http://192.168.118.64:5000/",
+      '^/api': {
+        target: 'https://localhost:44302',
         changeOrigin: true,
-        secure: false,
-      },
-    }
+        secure: false, // 因為是自簽 HTTPS
+    },
+  }
   }
 };

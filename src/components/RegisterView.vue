@@ -9,36 +9,43 @@
 
     <form @submit.prevent="submitForm" class="form-content">
       <div class="form-group">
-        <input v-model="form.phone" ref="phone" type="text" placeholder="請輸入手機號碼" @blur="validatePhone" />
+        <input v-model="form.phone" ref="phone" placeholder="請輸入手機號碼" @blur="validatePhone" />
         <small :class="errors.phone ? 'error-text' : 'hint-text'">
           {{ errors.phone || '09 開頭的 10 碼手機號碼' }}
         </small>
       </div>
 
       <div class="form-group">
-        <input v-model="form.nickname" ref="nickname" type="text" placeholder="請輸入暱稱" maxlength="20" @blur="validateNickname"/>
+        <input v-model="form.nickname" ref="nickname" type="text" placeholder="請輸入暱稱" maxlength="20" @blur="validateNickname" />
         <small :class="errors.nickname ? 'error-text' : 'hint-text'">
           {{ errors.nickname || '不得為空，且最多 20 字元' }}
         </small>
       </div>
 
       <div class="form-group">
-        <input v-model="form.username" ref="username" type="text" placeholder="請輸入帳號名稱" @blur="validateUsername"/>
+        <input v-model="form.username" ref="username" type="text" placeholder="請輸入帳號名稱" @blur="validateUsername" />
         <small :class="errors.username ? 'error-text' : 'hint-text'">
           {{ errors.username || '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號' }}
         </small>
       </div>
 
       <div class="form-group">
-        <input v-model="form.password" ref="password" type="password" placeholder="請輸入密碼" @blur="validatePassword"/>
+        <input v-model="form.password" ref="password" type="password" placeholder="請輸入密碼" @blur="validatePassword" />
         <small :class="errors.password ? 'error-text' : 'hint-text'">
           {{ errors.password || '密碼需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號' }}
         </small>
       </div>
 
+      <div class="form-group">
+        <input v-model="form.copassword" ref="copassword" type="password" placeholder="請確認密碼" @blur="validateCoPassword" />
+        <small :class="errors.copassword ? 'error-text' : 'hint-text'">
+          {{ errors.copassword || '密碼需與上述相符' }}
+        </small>
+      </div>
+
       <div class="form-group email-group">
         <div class="email-row">
-          <input v-model="form.email" type="email" placeholder="請輸入Email" @blur="validateEmail"/>
+          <input v-model="form.email" type="email" placeholder="請輸入Email" />
           <button type="button" class="code-button" :disabled="countdown > 0" @click="sendVerificationCode">
             {{ countdown > 0 ? countdown + ' 秒後重發' : '獲取驗證碼' }}
           </button>
@@ -49,10 +56,10 @@
       </div>
 
       <div class="form-group">
-        <input v-model="form.code" type="text" placeholder="驗證碼" maxlength="6" @blur="validateCode"/>
+        <input v-model="form.code" type="text" placeholder="驗證碼" maxlength="6" @blur="validateCode" />
         <small :class="errors.code ? 'error-text' : 'hint-text'">
-            {{ errors.code || '請輸入 6 位數驗證碼' }}
-          </small>
+          {{ errors.code || '請輸入 6 位數驗證碼（10 分鐘內有效）' }}
+        </small>
       </div>
 
       <div class="button-group">
@@ -62,19 +69,18 @@
 
       <div class="terms-container">
         <label class="terms-label">
-          <input type="checkbox" :checked="form.agreed" @click.prevent="handleTermsClick" />
+          <input type="checkbox" :checked="form.agreed" @change.prevent="handleTermsClick" />
           <span>註冊須知/會員權益</span>
         </label>
       </div>
     </form>
 
-    <!-- Modal 區塊 -->
     <AlertModal :visible="showAlert" :message="alertMessage" @close="showAlert = false" />
     <TermsModal v-if="showTerms" @close="showTerms = false" @accept="acceptTerms" />
   </div>
 </template>
 
-<script>
+<script> 
 import axios from 'axios';
 import AlertModal from '@/components/AlertModal.vue';
 import TermsModal from '@/components/TermsModal.vue';
@@ -94,6 +100,7 @@ export default {
         username: '',
         password: '',
         email: '',
+        copassword: '',
         code: '',
         agreed: false
       },
@@ -102,50 +109,67 @@ export default {
       timer: null,
       showAlert: false,
       alertMessage: '',
-      showTerms: false
+      showTerms: false,
+      pendingSubmit: false,
+      showTermsAfterAlert: false,
     };
+    
   },
   methods: {
     validatePhone() {
-    if (!/^09\d{8}$/.test(this.form.phone)) this.errors.phone = '手機格式錯誤，格式為09 開頭的 10 碼手機號碼';
-    else this.errors.phone = '';
-  },
-  validateNickname() {
-    if (!this.form.nickname.trim() || this.form.nickname.length > 20)
-      this.errors.nickname = '暱稱不得為空，且最多 20 字元';
-    else this.errors.nickname = '';
-  },
-  validateUsername() {
-    const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
-    if (!pattern.test(this.form.username)) this.errors.username = '帳號格式錯誤，格式為12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
-    else this.errors.username = '';
-  },
-  validatePassword() {
-    const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
-    if (!pattern.test(this.form.password)) this.errors.password = '密碼格式錯誤12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
-    else this.errors.password = '';
-  },
-  validateEmail() {
-    const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!pattern.test(this.form.email)) this.errors.email = '請輸入有效 Email 格式';
-    else this.errors.email = '';
-  },
-  validateCode() {
-    const pattern = /^\d{6}$/;
-    if (!pattern.test(this.form.code)) this.errors.code = '驗證碼需為 6 位數字';
-    else this.errors.code = '';
-  },
-  validateFields() {
-    this.validatePhone();
-    this.validateNickname();
-    this.validateUsername();
-    this.validatePassword();
-    this.validateEmail();
-    this.validateCode();
-    const firstError = Object.entries(this.errors).find(([, v]) => v);
-    if (firstError && this.$refs[firstError[0]]) this.$refs[firstError[0]].focus();
-    return !firstError;
-  },
+      if (!/^09\d{8}$/.test(this.form.phone))
+        this.errors.phone = '手機格式錯誤，格式為09 開頭的 10 碼手機號碼';
+      else this.errors.phone = '';
+    },
+    validateNickname() {
+      if (!this.form.nickname.trim() || this.form.nickname.length > 20)
+        this.errors.nickname = '暱稱不得為空，且最多 20 字元';
+      else this.errors.nickname = '';
+    },
+    validateUsername() {
+      const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
+      if (!pattern.test(this.form.username))
+        this.errors.username = '帳號格式錯誤，格式為12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
+      else this.errors.username = '';
+    },
+    validatePassword() {
+      const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
+      if (!pattern.test(this.form.password))
+        this.errors.password = '密碼格式錯誤12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
+      else this.errors.password = '';
+    },
+    validateCoPassword() {
+      if (this.form.copassword !== this.form.password) {
+        this.errors.copassword = '密碼不一致，請再次確認';
+      } else {
+        this.errors.copassword = '';
+      }
+    },
+    validateEmail() {
+      const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!pattern.test(this.form.email))
+        this.errors.email = '請輸入有效 Email 格式';
+      else this.errors.email = '';
+    },
+    validateCode() {
+      const pattern = /^\d{6}$/;
+      if (!pattern.test(this.form.code))
+        this.errors.code = '驗證碼需為 6 位數字';
+      else this.errors.code = '';
+    },
+    validateFields() {
+      this.validatePhone();
+      this.validateNickname();
+      this.validateUsername();
+      this.validatePassword();
+      this.validateCoPassword();
+      this.validateEmail();
+      this.validateCode();
+
+      const firstError = Object.entries(this.errors).find(([, v]) => v);
+      if (firstError && this.$refs[firstError[0]]) this.$refs[firstError[0]].focus();
+      return !firstError;
+    },
     showCentralAlert(message) {
       this.alertMessage = message;
       this.showAlert = true;
@@ -156,15 +180,26 @@ export default {
     acceptTerms() {
       this.form.agreed = true;
       this.showTerms = false;
+      this.validateFields();
     },
+    handleAlertClose() {
+  this.showAlert = false;
+  if (this.showTermsAfterAlert) {
+    this.showTermsAfterAlert = false;
+    this.showTerms = true;
+  }
+},
     async sendVerificationCode() {
-      if (!this.validateFields()) return;
+      this.validateEmail();
+      if (this.errors.email) return;
 
       try {
         const res = await axios.post('/api/MemberManagement/RegisterVerificationCode', {
-          sentEmail: this.form.email
+          SentEmail: this.form.email
         }, {
-          headers: { Authorization: `Bearer ${TOKEN}` }
+          headers: {
+            Authorization: `Bearer ${TOKEN}`
+          }
         });
 
         if (res.data.status === 'Success') {
@@ -177,25 +212,52 @@ export default {
             }
           }, 1000);
         } else {
-          this.showCentralAlert(res.data.message);
+          this.showCentralAlert(res.data.message || '發送驗證碼失敗');
         }
       } catch (err) {
         console.error(err);
         this.showCentralAlert('發送失敗，請稍後再試');
       }
     },
-    submitForm() {
-      if (!this.validateFields()) return;
+    async submitForm() {
       if (!this.form.agreed) {
-        this.showCentralAlert('請勾選註冊須知/會員權益');
-        return;
-      }
+        this.showTermsAfterAlert = true;
+  this.showCentralAlert('請先閱讀並同意註冊須知/會員權益');
+  return;
+}
 
-      this.showCentralAlert('所有欄位驗證通過，可以送出註冊資料！');
+      if (!this.validateFields()) return;
+
+      try {
+        const res = await axios.post('/api/MemberManagement/Register', {
+          register_PhoneNumber: this.form.phone,
+          register_Nickname: this.form.nickname,
+          register_AccountName: this.form.username,
+          register_Password: this.form.password,
+          register_VerificationCode: this.form.code,
+          register_Email: this.form.email
+        }, {
+          headers: {
+            Authorization: `Bearer ${TOKEN}`
+          }
+        });
+
+        if (res.data.status === 'Success') {
+          this.showCentralAlert('註冊成功，可以進行登入！');
+          this.$router.push('/');
+        } else {
+          this.showCentralAlert(res.data.message || '註冊失敗，請稍後再試');
+          if (res.data.message?.includes('手機')) this.$refs.phone?.focus();
+          else if (res.data.message?.includes('Email')) this.$refs.email?.focus();
+          else if (res.data.message?.includes('帳號')) this.$refs.username?.focus();
+        }
+      } catch (error) {
+        console.error(error);
+        this.showCentralAlert('註冊失敗，請稍後再試');
+      }
     },
     goLogin() {
       this.$router.push('/');
-
     }
   },
   beforeUnmount() {
@@ -203,7 +265,7 @@ export default {
   }
 };
 </script>
-  
+
   <style scoped>
   .registration-container {
     width: 100%;

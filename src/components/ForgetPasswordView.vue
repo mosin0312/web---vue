@@ -93,11 +93,18 @@
 
 <script setup>
 import AlertModal from '@/components/AlertModal.vue'
+import axios from 'axios'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+
+const router = useRouter()
 const showModal = ref(false)
 const modalMessage = ref('')
-const router = useRouter()
+
+// 固定訪客 Token
+const guestToken =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s'
+
 const goToLogin = () => {
   router.push('/')
 }
@@ -157,13 +164,11 @@ const validateCode = () => {
 }
 
 // 發送驗證碼
-const sendCode = () => {
-  // 先驗證格式
+const sendCode = async () => {
   validateAccount()
   validatePassword()
   validateEmail()
 
-  // 判斷錯誤欄位並收集
   let missing = []
   if (errors.value.account) missing.push('帳號')
   if (errors.value.password) missing.push('密碼')
@@ -175,23 +180,35 @@ const sendCode = () => {
     return
   }
 
-  // 所有欄位都正確 → 發送驗證碼
-  modalMessage.value = `驗證碼已寄出至 ${email.value}`
-  showModal.value = true
-
-  isSending.value = true
-  countdown.value = 60
-  timer = setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) {
-      clearInterval(timer)
-      isSending.value = false
-    }
-  }, 1000)
+  try {
+    const res = await axios.post(
+      '/api/MemberManagement/VerifyResetPasswordCode',
+      { SentEmail: email.value },
+      {
+        headers: {
+          Authorization: `Bearer ${guestToken}`
+        }
+      }
+    )
+    modalMessage.value = res.data.message || '驗證碼已寄出'
+  } catch (err) {
+    modalMessage.value = err.response?.data?.message || '驗證失敗，請稍後再試'
+  } finally {
+    showModal.value = true
+    isSending.value = true
+    countdown.value = 60
+    timer = setInterval(() => {
+      countdown.value--
+      if (countdown.value <= 0) {
+        clearInterval(timer)
+        isSending.value = false
+      }
+    }, 1000)
+  }
 }
 
 // 送出表單
-const submitForm = () => {
+const submitForm = async () => {
   validateAccount()
   validatePassword()
   validateEmail()
@@ -209,10 +226,36 @@ const submitForm = () => {
     return
   }
 
-  modalMessage.value = '驗證成功，送出資料'
-  showModal.value = true
+  try {
+    const res = await axios.post(
+      '/api/MemberManagement/ResetPassword',
+      {
+        resetPassword_AccountName: account.value,
+        resetPassword_Email: email.value,
+        resetPassword_VerificationCode: code.value,
+        resetPassword_NewPassword: password.value
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${guestToken}`
+        }
+      }
+    )
+
+    // ✅ 若成功，導頁到 ResetPasswordView（例如路徑為 /reset-password）
+    if (res.data.status === 'Success') {
+      router.push('/reset-password') // <<== 你可以改成你實際的路由名稱
+    } else {
+      modalMessage.value = res.data.message || '驗證失敗'
+      showModal.value = true
+    }
+  } catch (err) {
+    modalMessage.value = err.response?.data?.message || '伺服器錯誤，請稍後再試'
+    showModal.value = true
+  }
 }
 </script>
+
 
 <style scoped>
 .main-container {

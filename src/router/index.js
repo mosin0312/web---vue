@@ -24,7 +24,7 @@ const routes = [
   {path: '/screenshot',component:ScreenshotAnalysis},
   {path: '/anti-fraud-helpline',component:AntiFraudHelpline},
   {path: '/common-fraud-methods',component:CommonFraudMethods},
-  {path: '/anti-fraud-pomption',component:AntifraudPomotion}
+  {path: '/anti-fraud-pomption',component:AntifraudPomotion},
 ]
 
 const router = createRouter({

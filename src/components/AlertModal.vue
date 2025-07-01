@@ -1,8 +1,8 @@
-<template>
+<template> 
   <div v-if="visible" class="modal-overlay">
     <div class="modal-box">
       <p>{{ message }}</p>
-      <button class="confirm-btn" @click="$emit('close')">確定</button>
+      <button class="confirm-btn" @click="handleConfirm">確定</button>
     </div>
   </div>
 </template>
@@ -12,6 +12,12 @@ export default {
   props: {
     visible: Boolean,
     message: String
+  },
+  methods: {
+    handleConfirm() {
+      this.$emit('confirm')
+      this.$emit('close')
+    }
   }
 }
 </script>

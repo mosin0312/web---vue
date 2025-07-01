@@ -15,7 +15,7 @@
           </small>
         </div>
 
-
+        
         <div class="form-group">
           <input v-model="password" ref="passwordRef" type="password" placeholder="請輸入密碼" @blur="validatePassword" />
           <small :class="errors.password ? 'error-text' : 'hint-text'">
@@ -57,7 +57,7 @@
         <div class="links">
           <router-link to="/forget-password">忘記密碼?</router-link>
           <router-link to="/forget-account">忘記帳號?</router-link>
-          <a href="#">訪客登入</a>
+          <a href="#" @click.prevent="guestLogin">訪客登入</a>
         </div>
         <!--測試跳轉用，之後刪掉 -->
 <button @click="$router.push('/member-management')" class="test-btn">
@@ -65,7 +65,7 @@
 </button>
 <!--測試跳轉用，之後刪掉 -->
       </form>
-      <AlertModal :visible="showModal" :message="modalMessage" @close="showModal = false" />
+      <AlertModal :visible="showModal" :message="modalMessage" @close="handleModalClose"/>
     </div>
   </template>
   
@@ -89,11 +89,40 @@ const emailRef = ref(null);
 const captchaRef = ref(null);
 const showModal = ref(false);
 const modalMessage = ref('');
+const shouldRedirect = ref(false) // 控制是否要跳轉
 
-function showAlert(message) {
-  modalMessage.value = message;
-  showModal.value = true;
+
+const guestLogin = async () => {
+  try {
+    const response = await api.get('/api/MemberManagement/guest-token')
+    if (response.data.status === 'Success') {
+      const token = response.data.token
+      localStorage.setItem('guestToken', token)
+      showAlert('已使用訪客身份登入', true) // 點確認後才跳轉
+    } else {
+      showAlert('訪客登入失敗，請稍後再試')
+    }
+  } catch (error) {
+    console.error('訪客登入錯誤:', error)
+    showAlert('系統錯誤，請稍後再試')
+  }
 }
+
+
+function showAlert(message, redirect = false) {
+  modalMessage.value = message
+  showModal.value = true
+  shouldRedirect.value = redirect
+}
+
+function handleModalClose() {
+  showModal.value = false
+  if (shouldRedirect.value) {
+    router.push('/home')
+    shouldRedirect.value = false
+  }
+}
+
 
 function validateLoginFields() {
   errors.value = {};
@@ -205,15 +234,25 @@ async function submitForm() {
     });
 
     if (response.data.status === 'Success') {
-      localStorage.setItem('userToken', response.data.token); // 儲存登入後的 Token
-      showAlert('登入成功！');
-      router.push('/home'); // 可根據實際跳轉路由調整
+      //儲存 Token
+      localStorage.setItem('userToken', response.data.token)
+
+      // 儲存目前 Email（顯示在修改 Email 頁面的現在EMAIL）
+      localStorage.setItem('userEmail', email.value)
+
+      // 儲存帳號名稱（以防萬一有需要）
+      localStorage.setItem('accountName', username.value)
+
+      showAlert('登入成功！')
+
+      // 成功後跳轉頁面
+      router.push('/home') 
     } else {
-      showAlert(response.data.message || '登入失敗');
+      showAlert(response.data.message || '登入失敗')
     }
   } catch (error) {
-    console.error(error);
-    showAlert('登入發生錯誤');
+    console.error(error)
+    showAlert('登入發生錯誤')
   }
 }
 

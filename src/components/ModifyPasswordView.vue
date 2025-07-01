@@ -142,10 +142,10 @@ const submitForm = () => {
 
   // TODO: send API request here
   alert('修改成功')
-  router.push('/')
+  router.push('/member-management')
 }
 
-const goBack = () => router.push('/')
+const goBack = () => router.push('/member-management')
 </script>
 
 <style scoped>

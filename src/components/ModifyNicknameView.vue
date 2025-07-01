@@ -38,6 +38,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 import AlertModal from '@/components/AlertModal.vue'
 
 const nickname = ref('')
@@ -52,25 +53,48 @@ const showAlert = (msg) => {
   showModal.value = true
 }
 
+// 驗證暱稱
 const validateNickname = () => {
   errors.value.nickname = nickname.value.trim() === ''
     ? '暱稱不能為空'
     : ''
 }
 
-const goBack = () => router.push('/')
+// 返回上一頁
+const goBack = () => router.push('/member-management')
 
-const submitForm = () => {
+// 提交表單並呼叫 API
+const submitForm = async () => {
   validateNickname()
   if (errors.value.nickname) {
     nicknameRef.value?.focus()
     return
   }
 
-  showAlert('暱稱修改成功')
-  setTimeout(() => router.push('/'), 1500)
+  try {
+    const token = localStorage.getItem('userToken') // 取用登入後的 token
+    const response = await axios.put(
+      '/api/MemberManagement/update-nickname',
+      { newNickname: nickname.value },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    if (response.data.status === 'Success') {
+      showAlert('暱稱修改成功')
+      setTimeout(() => router.push('/member-management'), 1500)
+    } else {
+      showAlert(response.data.message || '暱稱修改失敗')
+    }
+  } catch (error) {
+    showAlert(error.response?.data?.message || '伺服器錯誤，請稍後再試')
+  }
 }
 </script>
+
 
 <style scoped>
 .main-container {

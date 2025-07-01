@@ -53,8 +53,11 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
 
-const currentEmail = ref('a1234567890@gmail.com')
+const router = useRouter()
+const currentEmail = ref(localStorage.getItem('userEmail') || '')
 const form = ref({
   newEmail: '',
   code: '',
@@ -65,7 +68,9 @@ const emailPattern = /^[\w.-]+@[\w.-]+\.\w{2,}$/
 const codePattern = /^\d{6}$/
 const passwordPattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/
 
-function sendCode() {
+const token = localStorage.getItem('userToken')
+
+async function sendCode() {
   if (!form.value.newEmail) {
     alert('請輸入新Email')
     return
@@ -74,31 +79,69 @@ function sendCode() {
     alert('Email格式錯誤')
     return
   }
-  alert('驗證碼已發送到 ' + form.value.newEmail)
+
+  try {
+    const res = await axios.post(
+      '/api/MemberManagement/VerifyChangeEmail',
+      { registerandResetPassword_Email: form.value.newEmail },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+
+    alert(res.data.message)
+  } catch (err) {
+    alert('驗證碼發送失敗，請稍後再試')
+  }
 }
 
-function cancel() {
-  alert('取消修改')
-}
+async function confirm() {
+  const { newEmail, code, password } = form.value
 
-function confirm() {
-  if (!form.value.newEmail || !form.value.code || !form.value.password) {
+  if (!newEmail || !code || !password) {
     alert('請填寫完整資訊')
     return
   }
-  if (!emailPattern.test(form.value.newEmail)) {
+  if (!emailPattern.test(newEmail)) {
     alert('Email格式錯誤')
     return
   }
-  if (!codePattern.test(form.value.code)) {
+  if (!codePattern.test(code)) {
     alert('驗證碼必須是6位數字')
     return
   }
-  if (!passwordPattern.test(form.value.password)) {
+  if (!passwordPattern.test(password)) {
     alert('密碼需12-20位且包含大小寫字母及數字，不得有特殊字元或空白')
     return
   }
-  alert('已確認修改！')
+
+  try {
+    const res = await axios.post(
+      '/api/MemberManagement/ChangeEmail',
+      {
+        newEmail,
+        verificationCode: code,
+        password
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+
+    if (res.data.status === 'Success') {
+      // ✅ 修改成功時更新 localStorage
+      localStorage.setItem('userEmail', newEmail)
+
+      // ✅ 顯示確認提示後導頁
+      if (window.confirm(res.data.message)) {
+        router.push('/member-management')
+      }
+    } else {
+      alert(res.data.message)
+    }
+  } catch (err) {
+    alert('Email 修改失敗，請稍後再試')
+  }
+}
+
+function cancel() {
+  router.push('/member-management')
 }
 </script>
 

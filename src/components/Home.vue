@@ -1,574 +1,477 @@
 <template>
-  <main class="notification-page">
+  <div class="main-container">
+    <!-- Header -->
     <header class="header">
-      <div class="home-section">
-        <img
-          src="https://cdn.builder.io/api/v1/image/assets/TEMP/58b657e52fe8cda21d491eb8d4e4cb297e11a667"
-          alt="Home logo"
-          class="home-logo"
-        />
-        <h1 class="home-title">主頁</h1>
+      <div class="header-left">
+        <img src="@/assets/icons/header-icon.svg" alt="logo" class="header-icon" />
+        <h1 class="page-title">主頁</h1>
       </div>
-      <button class="menu-button" aria-label="Menu">
-        <img
-          src="https://cdn.builder.io/api/v1/image/assets/TEMP/73f68d99227c9c07cc73fd1545a3a47aec30db5e"
-          alt=""
-          class="menu-icon"
-        />
-      </button>
+      <div class="header-right">
+        <img src="@/assets/icons/question.svg" alt="avatar" class="avatar-icon" />
+      </div>
     </header>
-    <div class="content-container">
-      <section class="notification-bar">
-        <img
-          src="https://cdn.builder.io/api/v1/image/assets/TEMP/a40987fbbc1f283a78518816fd3a587747d67e2b"
-          alt=""
-          class="notification-icon"
-        />
-        <span class="notification-text">通知</span>
-      </section>
-      <div class="main-content">
-        <section class="carousel-container">
-          <div
-            class="carousel-track"
-            :style="{ transform: `translateX(-${activeSlide * 100}%)` }"
-            @touchstart="handleTouchStart"
-            @touchmove="handleTouchMove"
-            @touchend="handleTouchEnd"
-          >
-            <div
-              v-for="(image, index) in carouselImages"
-              :key="index"
-              class="carousel-slide"
-            >
-              <img
-                :src="image.src"
-                alt=""
-                :class="[
-                  'carousel-image',
-                  index === activeSlide ? 'main-image' : 'blurred-image',
-                ]"
-              />
-            </div>
-          </div>
-          <div class="carousel-indicators">
-            <button
-              v-for="(_, index) in carouselImages"
-              :key="index"
-              :class="['indicator', { active: index === activeSlide }]"
-              @click="goToSlide(index)"
-              :aria-label="`Go to slide ${index + 1}`"
-              :aria-current="index === activeSlide ? 'true' : 'false'"
-            ></button>
-          </div>
-          <div class="carousel-controls">
-            <button
-              class="carousel-control prev"
-              @click="prevSlide"
-              aria-label="Previous slide"
-            >
-              <span aria-hidden="true">&#10094;</span>
-            </button>
-            <button
-              class="carousel-control next"
-              @click="nextSlide"
-              aria-label="Next slide"
-            >
-              <span aria-hidden="true">&#10095;</span>
-            </button>
-          </div>
-        </section>
-        <section class="news-section">
-          <header class="news-header">
-            <h2 class="news-title">更多相關資訊</h2>
-            <div class="view-all">
-              <span class="view-all-text">查看全部</span>
-              <div>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="arrow-icon"
-                >
-                  <path
-                    d="M8.0875 6.5H2V5.5H8.0875L5.2875 2.7L6 2L10 6L6 10L5.2875 9.3L8.0875 6.5Z"
-                    fill="#0064FA"
-                  ></path>
-                </svg>
-              </div>
-            </div>
-          </header>
-          <div class="news-list">
-            <article class="news-item">
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/e926402776adae16cdc4462445cf36d019130b7d"
-                alt=""
-                class="news-image"
-              />
-              <div class="news-content">
-                <h3 class="news-item-title">
-                  善用信賴科技 減少接電話、上網聊天被詐騙的機率
-                </h3>
-                <p class="news-description">
-                  根據國家通訊傳播委員會（NCC）統計，常見的詐騙來源中電話詐騙為大宗，政府因此要求電信業者開發...
-                </p>
-                <div class="news-footer">
-                  <time class="news-date">2025/01/28</time>
-                  <a href="#" class="read-more">點擊看完整內容</a>
-                </div>
-              </div>
-            </article>
-            <article class="news-item">
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/e926402776adae16cdc4462445cf36d019130b7d"
-                alt=""
-                class="news-image"
-              />
-              <div class="news-content">
-                <h3 class="news-item-title">
-                  善用信賴科技 減少接電話、上網聊天被詐騙的機率
-                </h3>
-                <p class="news-description">
-                  根據國家通訊傳播委員會（NCC）統計，常見的詐騙來源中電話詐騙為大宗，政府因此要求電信業者開發...
-                </p>
-                <div class="news-footer">
-                  <time class="news-date">2025/01/28</time>
-                  <a href="#" class="read-more">點擊看完整內容</a>
-                </div>
-              </div>
-            </article>
-            <article class="news-item">
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/e926402776adae16cdc4462445cf36d019130b7d"
-                alt=""
-                class="news-image"
-              />
-              <div class="news-content">
-                <h3 class="news-item-title">
-                  善用信賴科技 減少接電話、上網聊天被詐騙的機率
-                </h3>
-                <p class="news-description">
-                  根據國家通訊傳播委員會（NCC）統計，常見的詐騙來源中電話詐騙為大宗，政府因此要求電信業者開發...
-                </p>
-                <div class="news-footer">
-                  <time class="news-date">2025/01/28</time>
-                  <a href="#" class="read-more">點擊看完整內容</a>
-                </div>
-              </div>
-            </article>
-            <article class="news-item">
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/e926402776adae16cdc4462445cf36d019130b7d"
-                alt=""
-                class="news-image"
-              />
-              <div class="news-content">
-                <h3 class="news-item-title">
-                  善用信賴科技 減少接電話、上網聊天被詐騙的機率
-                </h3>
-                <p class="news-description">
-                  根據國家通訊傳播委員會（NCC）統計，常見的詐騙來源中電話詐騙為大宗，政府因此要求電信業者開發...
-                </p>
-                <div class="news-footer">
-                  <time class="news-date">2025/01/28</time>
-                  <a href="#" class="read-more">點擊看完整內容</a>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
+
+    <!-- Notification -->
+    <section class="notification-bar">
+      <img src="@/assets/icons/notification.svg" alt="通知" class="notification-icon" />
+      <span class="notification-text">通知</span>
+    </section>
+
+    <!-- Carousel -->
+    <section
+  class="carousel" @touchstart="handleTouchStart" @touchend="handleTouchEnd" @mousedown="handleMouseDown">
+  <div class="carousel-wrapper">
+    <div
+      class="carousel-image"
+      :style="{ backgroundImage: `url(${carouselImages[currentIndex].url})` }"
+    >
+
+    <!-- 可能會刪 -->
+      <div class="carousel-caption">
+        {{ carouselImages[currentIndex].title }}
+      </div>
+<!-- 可能會刪  -->
+
+    </div>
+    <button class="arrow left" @click="prevImage">&#8249;</button>
+    <button class="arrow right" @click="nextImage">&#8250;</button>
+  </div>
+  <div class="carousel-dots">
+    <span
+      v-for="(dot, i) in carouselImages.length"
+      :key="i"
+      class="dot"
+      :class="{ active: i === currentIndex }"
+      @click="currentIndex = i"
+    ></span>
+  </div>
+</section>
+
+    <!-- News Section -->
+    <section class="news-section">
+      <div class="section-header">
+        <h2 class="section-title">更多相關資訊</h2>
+        <div class="view-all" @click="goToAllNews">
+          查看全部
+        </div>
+      </div>
+
+      <div class="news-list">
+  <div v-for="(item, index) in newsList.slice(0, 5)" :key="index" class="news-card">
+    <img :src="item.imageUrl" class="news-image" />
+    <div class="news-content">
+      <div class="news-title">{{ item.title }}</div>
+      <div class="news-description">{{ item.description }}</div>
+      <div class="news-footer">
+        <span class="news-date">{{ item.pubDate }}</span>
+        <span class="news-link" @click="goToNews(item)">查看詳細內容</span>
       </div>
     </div>
-  </main>
+  </div>
+</div>
+    </section>
+   <!--測試跳轉用，之後刪掉 -->
+<button @click="goToMember" class="test-btn">
+  測試跳轉到 MemberManagementView.vue
+</button>
+<!--測試跳轉用，之後刪掉 -->
+
+<AlertModal
+  v-if="showLoginModal"  message="請先登入會員才能使用此功能"  @close="showLoginModal = false"/>
+  </div>
 </template>
 
-<script>
-export default {
-  name: "NotificationPage",
-  data() {
-    return {
-      activeSlide: 0,
-      carouselImages: [
-        {
-          src: "https://cdn.builder.io/api/v1/image/assets/TEMP/fa5b30d7805646d18240a531e3a09b6af2300f00",
-        },
-        {
-          src: "https://cdn.builder.io/api/v1/image/assets/TEMP/ec7c50e6ea5c6a00833d9b7d8a159b02375cbff4",
-        },
-        {
-          src: "https://cdn.builder.io/api/v1/image/assets/TEMP/ad33659c33381eac40061641b81f19d65a13ad9f",
-        },
-      ],
-      autoplayInterval: null,
-      autoplayDelay: 5000, // 5 seconds
-      touchStartX: 0,
-      touchEndX: 0,
-    };
-  },
-  mounted() {
-    this.startAutoplay();
-    // Add event listeners for focus/blur to pause/resume autoplay
-    window.addEventListener("blur", this.pauseAutoplay);
-    window.addEventListener("focus", this.startAutoplay);
-  },
-  beforeUnmount() {
-    this.pauseAutoplay();
-    window.removeEventListener("blur", this.pauseAutoplay);
-    window.removeEventListener("focus", this.startAutoplay);
-  },
-  methods: {
-    nextSlide() {
-      this.activeSlide = (this.activeSlide + 1) % this.carouselImages.length;
-      this.resetAutoplay();
-    },
-    prevSlide() {
-      this.activeSlide =
-        (this.activeSlide - 1 + this.carouselImages.length) %
-        this.carouselImages.length;
-      this.resetAutoplay();
-    },
-    goToSlide(index) {
-      this.activeSlide = index;
-      this.resetAutoplay();
-    },
-    startAutoplay() {
-      if (this.autoplayInterval) return;
-      this.autoplayInterval = setInterval(() => {
-        this.nextSlide();
-      }, this.autoplayDelay);
-    },
-    pauseAutoplay() {
-      if (this.autoplayInterval) {
-        clearInterval(this.autoplayInterval);
-        this.autoplayInterval = null;
-      }
-    },
-    resetAutoplay() {
-      this.pauseAutoplay();
-      this.startAutoplay();
-    },
-    handleTouchStart(e) {
-      this.touchStartX = e.touches[0].clientX;
-      this.pauseAutoplay(); // Pause autoplay during touch interaction
-    },
-    handleTouchMove(e) {
-      this.touchEndX = e.touches[0].clientX;
-    },
-    handleTouchEnd() {
-      const touchDiff = this.touchStartX - this.touchEndX;
-      const minSwipeDistance = 50; // Minimum distance to register as a swipe
 
-      if (touchDiff > minSwipeDistance) {
-        // Swipe left, go to next slide
-        this.nextSlide();
-      } else if (touchDiff < -minSwipeDistance) {
-        // Swipe right, go to previous slide
-        this.prevSlide();
-      }
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import axios from 'axios'
+import AlertModal from '@/components/AlertModal.vue'
 
-      this.startAutoplay(); // Resume autoplay after touch interaction
-    },
-  },
-};
+import { useRouter } from 'vue-router'
+import { isUserLoggedIn } from '@/router/useAuth.js'
+
+const router = useRouter()
+const showLoginModal = ref(false)
+
+//  模擬點擊會員功能
+const goToMember = () => {
+  if (!isUserLoggedIn()) {
+    showLoginModal.value = true
+    return
+  }
+  router.push('/member-management')
+}
+
+//  輪播圖資料
+const carouselImages = [
+  {url: new URL("@/assets/icons/fzpic1.svg",import.meta.url).href,
+  title: '守護你我，識破詐騙',},
+
+  {url: new URL("@/assets/icons/fzpic2.svg",import.meta.url).href,
+  title: '165 一鍵撥號，快速報警',},
+
+  {url: new URL("@/assets/icons/fzpic3.svg",import.meta.url).href,
+  title: '全民反詐，立即行動',},
+]
+
+const currentIndex = ref(0)
+let intervalId = null
+
+//  上一張 / 下一張圖
+const prevImage = () => {
+  currentIndex.value = (currentIndex.value - 1 + carouselImages.length) % carouselImages.length
+}
+const nextImage = () => {
+  currentIndex.value = (currentIndex.value + 1) % carouselImages.length
+}
+
+//  自動輪播控制
+const startAutoPlay = () => {
+  intervalId = setInterval(() => {
+    nextImage()
+  }, 5000)
+}
+const stopAutoPlay = () => {
+  if (intervalId) clearInterval(intervalId)
+}
+
+//  滑動手勢控制（touch / mouse）
+let startX = 0
+let isDragging = false
+
+const handleTouchStart = (e) => {
+  stopAutoPlay()
+  startX = e.changedTouches[0].clientX
+}
+
+const handleTouchEnd = (e) => {
+  const endX = e.changedTouches[0].clientX
+  const deltaX = endX - startX
+  if (deltaX > 50) prevImage()
+  else if (deltaX < -50) nextImage()
+  startAutoPlay()
+}
+
+const handleMouseDown = (e) => {
+  stopAutoPlay()
+  isDragging = true
+  startX = e.clientX
+}
+
+const handleMouseUp = (e) => {
+  if (!isDragging) return
+  const endX = e.clientX
+  const deltaX = endX - startX
+  if (deltaX > 50) prevImage()
+  else if (deltaX < -50) nextImage()
+  isDragging = false
+  startAutoPlay()
+}
+
+//  掛載與卸載處理
+onMounted(() => {
+  startAutoPlay()
+  window.addEventListener('mouseup', handleMouseUp)
+  fetchNews() // 呼叫 API 取得新聞資料
+})
+onUnmounted(() => {
+  stopAutoPlay()
+  window.removeEventListener('mouseup', handleMouseUp)
+})
+
+//  新聞 API 資料處理
+const newsList = ref([])
+
+const fetchNews = async () => {
+  try {
+    const token = localStorage.getItem('userToken')
+    const response = await axios.get('/api/MemberManagement/news', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (response.data && response.data.news) {
+      newsList.value = response.data.news.sort(
+        (a, b) => new Date(b.pubDate) - new Date(a.pubDate)
+      )
+    }
+  } catch (error) {
+    console.error('取得新聞失敗:', error)
+  }
+}
+
+//  點擊新聞項目開啟連結
+const goToNews = (item) => {
+  window.open(item.link, '_blank')
+}
+
+// 可選：跳轉到全部新聞頁
+const goToAllNews = () => {
+  // router.push('/news') 若有使用 Vue Router
+}
 </script>
 
+
 <style scoped>
-.notification-page {
-  display: flex;
+.main-container {
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  max-width: 100%;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
+  display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  background: linear-gradient(180deg, #e5d4fa 78.6%, #fff 100%);
-  overflow-x: hidden; /* ✅ 防止橫向捲軸產生 */
+  padding: 0 16px;
+  box-sizing: border-box;
+  position: relative; 
 }
 
 .header {
   display: flex;
-  width: 100%;
-  height: 40px;
-  padding: 0 21px;
-  justify-content: space-between;
+  max-width: 100%;
+  padding: 8px 16px; /* 修改為與 main-container 一致的 padding */
+  margin: 0 -16px; /* 抵消 main-container 的 padding 使 header 貼齊左右邊緣 */
+  width: calc(100% + 32px); /* 讓 header 撐滿整個視圖 */
+  justify-content: space-between; /*調整標題文字位置*/
   align-items: center;
   gap: 10px;
-  background-color: #fff;
+  background: #fff;              /* 白底 */
+  margin-bottom: 20px;
+  /*新增置頂設定 */
+  position: sticky;
+  top: 0;
+  z-index: 10; /* 確保在其他區塊上層 */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 可加陰影區分層次 */
+  
 }
 
-.home-section {
+.header-left {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px; 
 }
 
-.home-logo {
-  width: 39px;
-  height: 33px;
-}
-
-.home-title {
+.page-title {
   color: #000;
   font-family: Inter, sans-serif;
-  font-size: 20px;
-  font-weight: 500;
+  font-size: 25px;
+  font-weight: 700;
   margin: 0;
 }
 
-.menu-button {
-  display: flex;
-  width: 40px;
-  height: 40px;
-  padding: 10px;
-  justify-content: center;
-  align-items: center;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
 
-.menu-icon {
-  width: 36px;
-  height: 36px;
-}
-
-.content-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 360px;
-  width: 100%;
-  gap: 10px;
-  padding-left: 20px;
-  padding-right: 20px;
+.header-icon {
+  width: 39px;
+  height: 39px;
 }
 
 .notification-bar {
   display: flex;
-  width: 100%;
-  padding: 4px 10px 4px 4px;
   align-items: center;
-  gap: 5px;
-  border-radius: 8px;
-  background-color: #fff;
-  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  background: #fff;
+  align-items: center;
+  background: #fff;              /* 白底 */
+  border-radius: 12px;           /*  圓角 */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); /*  陰影 */
+  width: 100%; /* 更窄些 */
+  max-width: 100%;
+  height: 40px;  
+  padding: 8px 12px;
+  margin-bottom: 20px;
 }
 
 .notification-icon {
   width: 40px;
   height: 40px;
+  margin-right: 8px;
 }
 
 .notification-text {
-  color: #acacac;
-  font-family: Inter, sans-serif;
-  font-size: 20px;
   font-weight: 500;
+  color: #888;
+  font-size: 14px;
 }
 
-.main-content {
-  display: flex;
-  width: 100%;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-
-.carousel-container {
-  width: 100%;
-  overflow: hidden;
+.carousel {
   position: relative;
-}
-
-.carousel-track {
-  display: flex;
-  transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
+  max-width: 100%;
+  margin-bottom: 16px;
+  cursor: grab;
 }
 
-.carousel-slide {
-  min-width: 100%;
-  display: flex;
-  justify-content: center;
+.carousel-wrapper {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+  border-radius: 12px;
 }
 
 .carousel-image {
-  border-radius: 16px;
-}
-
-.main-image {
   width: 100%;
-  height: 215px;
-  object-fit: cover;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  border-radius: 12px;
+  transition: background-image 0.3s ease-in-out;
+}
+/*可能會刪*/
+.carousel-caption {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.4);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  animation: fadeIn 0.6s ease-in-out;
 }
 
-.blurred-image {
-  width: 260px;
-  height: 195px;
-  filter: blur(2px);
-  flex-shrink: 0;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+/*可能會刪*/
 
-.carousel-indicators {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-  margin-top: 10px;
-}
-
-.indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50px;
-  background-color: #d6d6d6;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.indicator.active {
-  width: 18px;
-  background-color: #acacac;
-}
-
-.carousel-controls {
+.arrow {
   position: absolute;
   top: 50%;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
   transform: translateY(-50%);
-  padding: 0 10px;
-}
-
-.carousel-control {
-  background-color: rgba(255, 255, 255, 0.7);
+  background-color: rgba(255, 255, 255, 0.8);
   border: none;
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 24px;
+  padding: 8px;
   cursor: pointer;
-  font-size: 16px;
-  color: #333;
-  transition: background-color 0.3s ease;
+  z-index: 2;
+  border-radius: 50%;
 }
 
-.carousel-control:hover {
-  background-color: rgba(255, 255, 255, 0.9);
+.arrow.left {
+  left: 8px;
 }
 
-@media (hover: none) {
-  .carousel-controls {
-    display: none;
-  }
+.arrow.right {
+  right: 8px;
+}
+
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  background: #ccc;
+  border-radius: 50%;
+  margin: 0 3px;
+}
+
+.dot.active {
+  background: #000;
 }
 
 .news-section {
-  display: flex;
+  margin-top: 20px;
   width: 100%;
-  flex-direction: column;
-  gap: 5px;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
 }
 
-.news-header {
+.section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 10px;
 }
 
-.news-title {
-  color: #000;
-  font-family: Inter, sans-serif;
-  font-size: 16px;
-  font-weight: 500;
-  margin: 0;
+.section-title {
+  font-size: 20px;
+  font-weight: bold;
 }
 
 .view-all {
+  font-size: 20px;
+  color: #0063f9;
   display: flex;
   align-items: center;
-  gap: 5px;
-}
-
-.view-all-text {
-  color: #0064fa;
-  font-family: Inter, sans-serif;
-  font-size: 12px;
-  font-weight: 200;
+  cursor: pointer;
 }
 
 .arrow-icon {
   width: 12px;
   height: 12px;
+  margin-left: 4px;
 }
 
 .news-list {
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 12px;
 }
 
-.news-item {
+.news-card {
   display: flex;
-  height: 66px;
-  padding: 6px 9px;
-  align-items: center;
-  gap: 5px;
+  background: #f5f5f5;
   border-radius: 10px;
-  background-color: #f5f5f5;
+  padding: 8px;
 }
 
 .news-image {
-  width: 75px;
-  height: 55px;
+  width: 100px;
+  height: 75px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .news-content {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  margin-left: 10px;
   flex: 1;
 }
 
-.news-item-title {
-  color: #000;
-  font-family: Inter, sans-serif;
-  font-size: 9px;
-  font-weight: 900;
-  margin: 0;
+.news-title {
+  font-size: 25px;
+  font-weight: bold;
+  margin-bottom: 4px;
 }
 
 .news-description {
-  color: #4d4d4d;
-  font-family: Inter, sans-serif;
-  font-size: 8px;
-  font-weight: 300;
-  margin: 0;
+  font-size: 20px;
+  color: #555;
+  margin-bottom: 6px;
 }
 
 .news-footer {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  font-size: 15px;
+  color: #888;
 }
 
-.news-date {
-  color: #000;
-  font-family: Inter, sans-serif;
-  font-size: 8px;
+.news-link {
+  font-size: 20px;
+  color: #2053ed;
+  cursor: pointer;
 }
 
-.read-more {
-  color: #2054ee;
-  font-family: Inter, sans-serif;
-  font-size: 8px;
-  text-decoration: none;
+/**測試跳轉用，之後刪掉 */
+.test-btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #007aff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
 }
+/**測試跳轉用，之後刪掉 */
+
 </style>

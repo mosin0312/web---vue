@@ -21,22 +21,22 @@
         <input
           v-model="account" ref="accountRef" type="text" placeholder="請輸入帳號名稱"  maxlength="20" @blur="validateAccount" />
         <small :class="errors.account ? 'error-text' : 'hint-text'">
-          {{ errors.account || '需含大小寫英數，12-20 位，不含特殊符號' }}
+          {{ errors.account || '帳號格式錯誤12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
       </div>
 
       <!-- 新密碼欄位 -->
       <div class="form-group">
-        <input
-          v-model="password"
-          ref="passwordRef"
-          type="password"
-          placeholder="請輸入密碼"
-          maxlength="20"
-          @blur="validatePassword"
-        />
+        <input v-model="password"  ref="passwordRef"  type="password"  placeholder="請輸入密碼"  maxlength="20"  @blur="validatePassword"/>
         <small :class="errors.password ? 'error-text' : 'hint-text'">
-          {{ errors.password || '需含大小寫英數，12-20 位，不含特殊符號' }}
+          {{ errors.password || '密碼格式錯誤12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
+        </small>
+      </div>
+
+      <div class="form-group">
+        <input  v-model="copassword"  ref="copasswordRef"  type="password"  placeholder="請再次輸入密碼"  @blur="validateCoPassword"/>
+        <small :class="errors.copassword ? 'error-text' : 'hint-text'">
+          {{ errors.copassword || '密碼需與上述相符' }}
         </small>
       </div>
 
@@ -83,7 +83,7 @@
 
       <!-- 送出按鈕 -->
       <div class="button-group">
-        <button type="submit" class="main-button">驗證身分</button>
+        <button type="submit" class="main-button">確認修改密碼</button>
         <button type="button" class="main-button" @click="goToLogin">返回登入</button>
       </div>
     </form>
@@ -94,7 +94,7 @@
 <script setup>
 import AlertModal from '@/components/AlertModal.vue'
 import axios from 'axios'
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -102,77 +102,76 @@ const showModal = ref(false)
 const modalMessage = ref('')
 
 // 固定訪客 Token
-const guestToken =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s'
+const guestToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s'
 
-const goToLogin = () => {
-  router.push('/')
-}
+const goToLogin = () => router.push('/')
 
 // 欄位資料
 const account = ref('')
 const password = ref('')
+const copassword = ref('')
 const email = ref('')
 const code = ref('')
 
-// 輸入欄位 ref
+// ref 對應欄位
 const accountRef = ref(null)
 const passwordRef = ref(null)
+const copasswordRef = ref(null)
 const emailRef = ref(null)
 const codeRef = ref(null)
 
-// 錯誤訊息
-const errors = ref({
+
+const errors = reactive({
   account: '',
   password: '',
+  copassword: '',
   email: '',
   code: ''
 })
 
-// 倒數邏輯
+// 倒數驗證碼發送
 const isSending = ref(false)
 const countdown = ref(60)
 let timer = null
 
-// 驗證函式
+// 驗證欄位格式
 const validateAccount = () => {
   const pattern = /^[A-Za-z0-9]{12,20}$/
-  errors.value.account = pattern.test(account.value)
+  errors.account = pattern.test(account.value)
     ? ''
-    : '帳號格式錯誤（12-20 位英數）'
+    : '帳號格式錯誤12-20 字元，包含英文與數字'
 }
 
 const validatePassword = () => {
   const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/
-  errors.value.password = pattern.test(password.value)
+  errors.password = pattern.test(password.value)
     ? ''
-    : '密碼需含大小寫英文與數字'
+    : '密碼格式錯誤，須含大小寫英文與數字共 12-20 字元'
+}
+
+const validateCoPassword = () => {
+  errors.copassword =
+    copassword.value !== password.value ? '密碼不一致，請再次確認' : ''
 }
 
 const validateEmail = () => {
   const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  errors.value.email = pattern.test(email.value)
-    ? ''
-    : 'Email 格式錯誤'
+  errors.email = pattern.test(email.value) ? '' : 'Email 格式錯誤'
 }
 
 const validateCode = () => {
   const pattern = /^\d{6}$/
-  errors.value.code = pattern.test(code.value)
-    ? ''
-    : '請輸入6位數字驗證碼'
+  errors.code = pattern.test(code.value) ? '' : '請輸入6位數驗證碼'
 }
 
 // 發送驗證碼
 const sendCode = async () => {
   validateAccount()
-  validatePassword()
   validateEmail()
 
-  let missing = []
-  if (errors.value.account) missing.push('帳號')
-  if (errors.value.password) missing.push('密碼')
-  if (errors.value.email) missing.push('Email')
+  const missing = []
+  if (errors.account) missing.push('帳號')
+  if (errors.email) missing.push('Email')
 
   if (missing.length > 0) {
     modalMessage.value = `請先正確填寫：${missing.join('、')}`
@@ -183,16 +182,13 @@ const sendCode = async () => {
   try {
     const res = await axios.post(
       '/api/MemberManagement/VerifyResetPasswordCode',
-      { SentEmail: email.value },
-      {
-        headers: {
-          Authorization: `Bearer ${guestToken}`
-        }
-      }
+      { sentEmail: email.value },
+      { headers: { Authorization: `Bearer ${guestToken}` } }
     )
-    modalMessage.value = res.data.message || '驗證碼已寄出'
+    modalMessage.value = res.data.message || '驗證碼已發送'
   } catch (err) {
-    modalMessage.value = err.response?.data?.message || '驗證失敗，請稍後再試'
+    modalMessage.value =
+      err.response?.data?.message || '寄送驗證碼失敗，請稍後再試'
   } finally {
     showModal.value = true
     isSending.value = true
@@ -207,22 +203,24 @@ const sendCode = async () => {
   }
 }
 
-// 送出表單
+// 確認修改密碼
 const submitForm = async () => {
   validateAccount()
   validatePassword()
+  validateCoPassword()
   validateEmail()
   validateCode()
 
-  const firstError = Object.keys(errors.value).find(key => errors.value[key])
+  const firstError = Object.keys(errors).find(key => errors[key])
   if (firstError) {
     const refMap = {
       account: accountRef,
       password: passwordRef,
+      copassword: copasswordRef,
       email: emailRef,
       code: codeRef
     }
-    refMap[firstError].value?.focus()
+    refMap[firstError]?.value?.focus()
     return
   }
 
@@ -237,24 +235,31 @@ const submitForm = async () => {
       },
       {
         headers: {
-          Authorization: `Bearer ${guestToken}`
+          Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s`
         }
       }
     )
 
-    // ✅ 若成功，導頁到 ResetPasswordView（例如路徑為 /reset-password）
     if (res.data.status === 'Success') {
-      router.push('/reset-password') // <<== 你可以改成你實際的路由名稱
+      modalMessage.value = res.data.message || '密碼已更新，請重新登入'
+      showModal.value = true
+      setTimeout(() => {
+        router.push('/')
+      }, 1500)
     } else {
-      modalMessage.value = res.data.message || '驗證失敗'
+      modalMessage.value = res.data.message || '驗證或更新密碼失敗'
       showModal.value = true
     }
   } catch (err) {
-    modalMessage.value = err.response?.data?.message || '伺服器錯誤，請稍後再試'
+    modalMessage.value =
+      err.response?.data?.message || '伺服器錯誤，請稍後再試'
     showModal.value = true
   }
 }
 </script>
+
+
+
 
 
 <style scoped>

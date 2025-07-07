@@ -59,11 +59,7 @@
           <router-link to="/forget-account">忘記帳號?</router-link>
           <a href="#" @click.prevent="guestLogin">訪客登入</a>
         </div>
-        <!--測試跳轉用，之後刪掉 -->
-<button @click="$router.push('/member-management')" class="test-btn">
-  測試跳轉到 MemberManagementView.vue
-</button>
-<!--測試跳轉用，之後刪掉 -->
+
       </form>
       <AlertModal :visible="showModal" :message="modalMessage" @close="handleModalClose"/>
     </div>
@@ -112,7 +108,7 @@ function handleModalClose() {
   }
 }
 
-// ✅ 單欄位驗證
+//  單欄位驗證
 function validateUsername() {
   const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
   errors.value.username = pattern.test(username.value) ? '' : '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
@@ -130,7 +126,7 @@ function validateCaptcha() {
   errors.value.captcha = pattern.test(captcha.value) ? '' : '驗證碼需為 6 位數字';
 }
 
-// ✅ 全欄位驗證
+//全欄位驗證
 function validateLoginFields() {
   errors.value = {};
   validateUsername();
@@ -190,11 +186,13 @@ async function getCode() {
         if (countdown.value <= 0) clearInterval(timer.value);
       }, 1000);
     } else {
+      // 顯示後端錯誤訊息
       showAlert(response.data.message || '發送驗證碼失敗');
     }
   } catch (error) {
     console.error(error);
-    showAlert('發送驗證碼失敗，請稍後再試');
+    const message = error.response?.data?.message;
+    showAlert(message || '發送驗證碼失敗，請稍後再試');
   }
 }
 
@@ -215,14 +213,23 @@ async function submitForm() {
       localStorage.setItem('userToken', response.data.token);
       localStorage.setItem('userEmail', email.value);
       localStorage.setItem('accountName', username.value);
+      localStorage.setItem('userRole', 'User'); //  加入會員身份紀錄
 
       showAlert('登入成功！', true);
     } else {
+      // 顯示後端傳回的具體錯誤訊息
       showAlert(response.data.message || '登入失敗');
     }
   } catch (error) {
     console.error(error);
-    showAlert('登入發生錯誤');
+
+    // 嘗試讀取後端錯誤回應中的 message
+    const message = error.response?.data?.message;
+    if (message) {
+      showAlert(message);
+    } else {
+      showAlert('登入發生錯誤，請稍後再試');
+    }
   }
 }
 
@@ -234,6 +241,8 @@ const guestLogin = async () => {
     if (response.data.status === 'Success') {
       const token = response.data.token;
       localStorage.setItem('guestToken', token);
+      localStorage.setItem('userRole', 'Guest'); //  加入訪客身份紀錄
+
       showAlert('已使用訪客身份登入', true);
     } else {
       showAlert('訪客登入失敗，請稍後再試');
@@ -278,7 +287,7 @@ function goToRegister() {
   
   .header-icon {
     width: 39px;
-    height: 33px;
+    height: 39px;
   }
   
   .home-title {
@@ -419,19 +428,6 @@ function goToRegister() {
   z-index: 0;
   pointer-events: none; /* 不會擋住主畫面 */
 }
-
-/**測試跳轉用，之後刪掉 */
-.test-btn {
-  margin-top: 20px;
-  padding: 10px 20px;
-  background-color: #007aff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-/**測試跳轉用，之後刪掉 */
-
 
   </style>
   

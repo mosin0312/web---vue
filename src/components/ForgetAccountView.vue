@@ -81,7 +81,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import AlertModal from '@/components/AlertModal.vue'
 
-// 固定訪客 Token
+// 訪客 Token
 const guestToken =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s'
 
@@ -157,14 +157,15 @@ const sendCode = async () => {
         }
       }, 1000)
     } else {
-      showAlert(res.data.message)
+      showAlert(res.data.message || '發送驗證碼失敗')
     }
   } catch (err) {
-    showAlert('發送驗證碼失敗，請稍後再試')
+    const message = err.response?.data?.message || '發送驗證碼失敗，請稍後再試'
+    showAlert(message)
   }
 }
 
-// 驗證身分送出表單
+// 送出驗證表單
 const submitForm = async () => {
   validatePhone()
   validateEmail()
@@ -184,7 +185,6 @@ const submitForm = async () => {
       '/api/MemberManagement/ForgetAccount',
       {
         forgetAccount_PhoneNumber: phone.value,
-        //forgetAccount_PhoneNumber: phone.value.replace(/^09/, '9'), // 去掉前面0
         forgetAccount_Email: email.value,
         forgetAccount_VerificationCode: code.value
       },
@@ -197,12 +197,13 @@ const submitForm = async () => {
 
     if (res.data.status === 'Success') {
       showAlert(res.data.message)
-      // 如需跳轉登入頁可在這裡加入 router.push('/')
+      // router.push('/') 可選擇跳轉登入頁
     } else {
       showAlert(res.data.message || '驗證失敗')
     }
   } catch (err) {
-    showAlert('驗證失敗，請稍後再試')
+    const message = err.response?.data?.message || '驗證失敗，請稍後再試'
+    showAlert(message)
   }
 }
 

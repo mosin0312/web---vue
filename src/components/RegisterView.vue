@@ -9,9 +9,9 @@
 
     <form @submit.prevent="submitForm" class="form-content">
       <div class="form-group">
-        <input v-model="form.phone" ref="phone" placeholder="請輸入手機號碼" @blur="validatePhone" />
+        <input v-model="form.phone" ref="phone" placeholder="請輸入手機號碼，例:0912345678" @blur="validatePhone" />
         <small :class="errors.phone ? 'error-text' : 'hint-text'">
-          {{ errors.phone || '09 開頭的 10 碼手機號碼' }}
+          {{ errors.phone || '09 開頭的 10 碼手機號碼，例:0912345678' }}
         </small>
       </div>
 
@@ -25,14 +25,14 @@
       <div class="form-group">
         <input v-model="form.username" ref="username" type="text" placeholder="請輸入帳號名稱" @blur="validateUsername" />
         <small :class="errors.username ? 'error-text' : 'hint-text'">
-          {{ errors.username || '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號' }}
+          {{ errors.username || '帳號需 12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
       </div>
 
       <div class="form-group">
         <input v-model="form.password" ref="password" type="password" placeholder="請輸入密碼" @blur="validatePassword" />
         <small :class="errors.password ? 'error-text' : 'hint-text'">
-          {{ errors.password || '密碼需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號' }}
+          {{ errors.password || '密碼需 12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
       </div>
 
@@ -118,7 +118,7 @@ export default {
   methods: {
     validatePhone() {
       if (!/^09\d{8}$/.test(this.form.phone))
-        this.errors.phone = '手機格式錯誤，格式為09 開頭的 10 碼手機號碼';
+        this.errors.phone = '手機格式錯誤，格式為09 開頭的 10 碼手機號碼，例:0912345678';
       else this.errors.phone = '';
     },
     validateNickname() {
@@ -129,13 +129,13 @@ export default {
     validateUsername() {
       const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
       if (!pattern.test(this.form.username))
-        this.errors.username = '帳號格式錯誤，格式為12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
+        this.errors.username = '帳號格式錯誤，格式為12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)';
       else this.errors.username = '';
     },
     validatePassword() {
       const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
       if (!pattern.test(this.form.password))
-        this.errors.password = '密碼格式錯誤12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
+        this.errors.password = '密碼格式錯誤12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)';
       else this.errors.password = '';
     },
     validateCoPassword() {

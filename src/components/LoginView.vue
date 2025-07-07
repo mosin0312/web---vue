@@ -73,7 +73,10 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import AlertModal from '@/components/AlertModal.vue';
-import api from '@/api'; // 使用封裝好的 axios instance
+import api from '@/api'; // 封裝好的 axios instance
+
+//  固定 Guest TOKEN，僅用於登入與發送驗證碼
+const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s'; 
 
 const username = ref('');
 const password = ref('');
@@ -81,76 +84,75 @@ const email = ref('');
 const captcha = ref('');
 const rememberMe = ref(false);
 const countdown = ref(0);
-const router = useRouter();
+const timer = ref(null);
 const errors = ref({});
+const showModal = ref(false);
+const modalMessage = ref('');
+const shouldRedirect = ref(false);
+const router = useRouter();
+
 const usernameRef = ref(null);
 const passwordRef = ref(null);
 const emailRef = ref(null);
 const captchaRef = ref(null);
-const showModal = ref(false);
-const modalMessage = ref('');
-const shouldRedirect = ref(false) // 控制是否要跳轉
 
-
-const guestLogin = async () => {
-  try {
-    const response = await api.get('/api/MemberManagement/guest-token')
-    if (response.data.status === 'Success') {
-      const token = response.data.token
-      localStorage.setItem('guestToken', token)
-      showAlert('已使用訪客身份登入', true) // 點確認後才跳轉
-    } else {
-      showAlert('訪客登入失敗，請稍後再試')
-    }
-  } catch (error) {
-    console.error('訪客登入錯誤:', error)
-    showAlert('系統錯誤，請稍後再試')
-  }
-}
-
-
+// 顯示 modal
 function showAlert(message, redirect = false) {
-  modalMessage.value = message
-  showModal.value = true
-  shouldRedirect.value = redirect
+  modalMessage.value = message;
+  showModal.value = true;
+  shouldRedirect.value = redirect;
 }
 
+// 關閉 modal 後跳轉
 function handleModalClose() {
-  showModal.value = false
+  showModal.value = false;
   if (shouldRedirect.value) {
-    router.push('/home')
-    shouldRedirect.value = false
+    router.push('/home');
+    shouldRedirect.value = false;
   }
 }
 
+// ✅ 單欄位驗證
+function validateUsername() {
+  const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
+  errors.value.username = pattern.test(username.value) ? '' : '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
+}
+function validatePassword() {
+  const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
+  errors.value.password = pattern.test(password.value) ? '' : '密碼需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
+}
+function validateEmail() {
+  const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  errors.value.email = pattern.test(email.value) ? '' : '請輸入有效的 Email 格式';
+}
+function validateCaptcha() {
+  const pattern = /^\d{6}$/;
+  errors.value.captcha = pattern.test(captcha.value) ? '' : '驗證碼需為 6 位數字';
+}
 
+// ✅ 全欄位驗證
 function validateLoginFields() {
   errors.value = {};
-
-  const usernamePattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const codePattern = /^\d{6}$/;
-
-  if (!usernamePattern.test(username.value)) {
-    errors.value.username = '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
+  validateUsername();
+  if (errors.value.username) {
     usernameRef.value?.focus();
     return false;
   }
 
-  if (!usernamePattern.test(password.value)) {
-    errors.value.password = '密碼需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
+  validatePassword();
+  if (errors.value.password) {
     passwordRef.value?.focus();
     return false;
   }
 
-  if (!emailPattern.test(email.value)) {
-    errors.value.email = 'Email 格式不正確';
+  validateEmail();
+  if (errors.value.email) {
     emailRef.value?.focus();
     return false;
   }
 
-  if (!codePattern.test(captcha.value)) {
-    errors.value.captcha = '驗證碼需為 6 位數字';
+  validateCaptcha();
+  if (errors.value.captcha) {
     captchaRef.value?.focus();
     return false;
   }
@@ -158,28 +160,7 @@ function validateLoginFields() {
   return true;
 }
 
-function validateUsername() {
-  const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
-  errors.value.username = pattern.test(username.value) ? '' : '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
-}
-
-function validatePassword() {
-  const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
-  errors.value.password = pattern.test(password.value) ? '' : '密碼需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
-}
-
-function validateEmail() {
-  const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  errors.value.email = pattern.test(email.value) ? '' : '請輸入有效的 Email 格式';
-}
-
-function validateCaptcha() {
-  const pattern = /^\d{6}$/;
-  errors.value.captcha = pattern.test(captcha.value) ? '' : '驗證碼需為 6 位數字';
-}
-
-let timer = null;
-
+//  獲取驗證碼
 async function getCode() {
   validateUsername();
   validatePassword();
@@ -196,32 +177,28 @@ async function getCode() {
   }
 
   try {
-    const response = await api.post('/api/MemberManagement/LoginverificationCode', {
-      Register_AccountName: username.value,
-      Register_Password: password.value,
-      Register_Email: email.value,
-    });
+    const response = await api.post('/api/MemberManagement/LoginVerificationCode',
+      { sentEmail: email.value },
+      { headers: { Authorization: `Bearer ${TOKEN}` } }
+    );
 
     if (response.data.status === 'Success') {
       showAlert(`驗證碼已發送至 ${email.value}`);
       countdown.value = 60;
-      timer = setInterval(() => {
+      timer.value = setInterval(() => {
         countdown.value--;
-        if (countdown.value <= 0) clearInterval(timer);
+        if (countdown.value <= 0) clearInterval(timer.value);
       }, 1000);
     } else {
       showAlert(response.data.message || '發送驗證碼失敗');
     }
   } catch (error) {
-    showAlert('發送驗證碼失敗，請稍後再試');
     console.error(error);
+    showAlert('發送驗證碼失敗，請稍後再試');
   }
 }
 
-function goToRegister() {
-  router.push('/register');
-}
-
+// 登入
 async function submitForm() {
   if (!validateLoginFields()) return;
 
@@ -229,34 +206,49 @@ async function submitForm() {
     const response = await api.post('/api/MemberManagement/Login', {
       Login_AccountName: username.value,
       Login_Password: password.value,
-      Login_Email: email.value,
-      Login_VerifyCode: captcha.value,
+      Login_VerificationCode: captcha.value,
+    }, {
+      headers: { Authorization: `Bearer ${TOKEN}` }
     });
 
     if (response.data.status === 'Success') {
-      //儲存 Token
-      localStorage.setItem('userToken', response.data.token)
+      localStorage.setItem('userToken', response.data.token);
+      localStorage.setItem('userEmail', email.value);
+      localStorage.setItem('accountName', username.value);
 
-      // 儲存目前 Email（顯示在修改 Email 頁面的現在EMAIL）
-      localStorage.setItem('userEmail', email.value)
-
-      // 儲存帳號名稱（以防萬一有需要）
-      localStorage.setItem('accountName', username.value)
-
-      showAlert('登入成功！')
-
-      // 成功後跳轉頁面
-      router.push('/home') 
+      showAlert('登入成功！', true);
     } else {
-      showAlert(response.data.message || '登入失敗')
+      showAlert(response.data.message || '登入失敗');
     }
   } catch (error) {
-    console.error(error)
-    showAlert('登入發生錯誤')
+    console.error(error);
+    showAlert('登入發生錯誤');
   }
 }
 
+//訪客登入
+const guestLogin = async () => {
+  try {
+    const response = await api.get('/api/MemberManagement/guest-token');
+
+    if (response.data.status === 'Success') {
+      const token = response.data.token;
+      localStorage.setItem('guestToken', token);
+      showAlert('已使用訪客身份登入', true);
+    } else {
+      showAlert('訪客登入失敗，請稍後再試');
+    }
+  } catch (error) {
+    console.error('訪客登入錯誤:', error);
+    showAlert('系統錯誤，請稍後再試');
+  }
+};
+
+function goToRegister() {
+  router.push('/register');
+}
 </script>
+
   
   <style scoped>
   .login-container {

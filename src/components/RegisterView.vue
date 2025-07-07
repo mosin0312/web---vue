@@ -165,6 +165,7 @@ export default {
       this.validateCoPassword();
       this.validateEmail();
       this.validateCode();
+      this.errors = {}; // 清空所有欄位錯誤
 
       const firstError = Object.entries(this.errors).find(([, v]) => v);
       if (firstError && this.$refs[firstError[0]]) this.$refs[firstError[0]].focus();
@@ -203,59 +204,106 @@ export default {
         });
 
         if (res.data.status === 'Success') {
-          this.showCentralAlert('驗證碼已發送至 Email');
-          this.countdown = 60;
-          this.timer = setInterval(() => {
-            this.countdown--;
-            if (this.countdown <= 0) {
-              clearInterval(this.timer);
-            }
-          }, 1000);
-        } else {
-          this.showCentralAlert(res.data.message || '發送驗證碼失敗');
+      this.showCentralAlert('驗證碼已發送至 Email');
+      this.countdown = 60;
+      this.timer = setInterval(() => {
+        this.countdown--;
+        if (this.countdown <= 0) {
+          clearInterval(this.timer);
         }
-      } catch (err) {
-        console.error(err);
-        this.showCentralAlert('發送失敗，請稍後再試');
+      }, 1000);
+    } else {
+      this.showCentralAlert(res.data.message || '發送驗證碼失敗');
+    }
+  } catch (error) {
+    console.error(error);
+    const data = error.response?.data;
+
+    if (data && data.status === 'Failed') {
+      this.showCentralAlert(data.message || '發送驗證碼失敗');
+
+      // 處理欄位錯誤（ModelState 驗證）
+      const fieldErrors = data.errors || {};
+      this.errors = { ...this.errors, ...fieldErrors };
+
+      const firstErrorKey = Object.keys(fieldErrors)[0];
+      if (this.$refs[firstErrorKey]) {
+        this.$refs[firstErrorKey].focus();
       }
-    },
+    } else {
+      this.showCentralAlert('伺服器錯誤，請稍後再試');
+    }
+  }
+},
     async submitForm() {
-      if (!this.form.agreed) {
-        this.showTermsAfterAlert = true;
-  this.showCentralAlert('請先閱讀並同意註冊須知/會員權益');
-  return;
-}
+  // 清空之前錯誤
+  this.errors = {};
 
-      if (!this.validateFields()) return;
+  // 檢查是否同意註冊須知
+  if (!this.form.agreed) {
+    this.showTermsAfterAlert = true;
+    this.showCentralAlert('請先閱讀並同意註冊須知/會員權益');
+    return;
+  }
 
-      try {
-        const res = await axios.post('/api/MemberManagement/Register', {
-          register_PhoneNumber: this.form.phone,
-          register_Nickname: this.form.nickname,
-          register_AccountName: this.form.username,
-          register_Password: this.form.password,
-          register_VerificationCode: this.form.code,
-          register_Email: this.form.email
-        }, {
-          headers: {
-            Authorization: `Bearer ${TOKEN}`
-          }
-        });
+  // 前端欄位驗證
+  if (!this.validateFields()) return;
 
-        if (res.data.status === 'Success') {
-          this.showCentralAlert('註冊成功，可以進行登入！');
-          this.$router.push('/');
-        } else {
-          this.showCentralAlert(res.data.message || '註冊失敗，請稍後再試');
-          if (res.data.message?.includes('手機')) this.$refs.phone?.focus();
-          else if (res.data.message?.includes('Email')) this.$refs.email?.focus();
-          else if (res.data.message?.includes('帳號')) this.$refs.username?.focus();
-        }
-      } catch (error) {
-        console.error(error);
-        this.showCentralAlert('註冊失敗，請稍後再試');
+  try {
+    const res = await axios.post('/api/MemberManagement/Register', {
+      register_PhoneNumber: this.form.phone,
+      register_Nickname: this.form.nickname,
+      register_AccountName: this.form.username,
+      register_Password: this.form.password,
+      register_VerificationCode: this.form.code,
+      register_Email: this.form.email
+    }, {
+      headers: {
+        Authorization: `Bearer ${TOKEN}`
       }
-    },
+    });
+
+    if (res.data.status === 'Success') {
+      this.showCentralAlert('註冊成功，可以進行登入！');
+      this.$router.push('/');
+    } else {
+      // 處理失敗回應（status === 'Failed'）
+      const fieldErrors = res.data.errors || {};
+      this.errors = { ...this.errors, ...fieldErrors };
+
+      // ✅ 只顯示 phoneOrEmail 的錯誤訊息
+      this.showCentralAlert(fieldErrors.phoneOrEmail || '註冊失敗，請稍後再試');
+
+      const firstErrorKey = Object.keys(fieldErrors)[0];
+      if (this.$refs[firstErrorKey]) {
+        this.$refs[firstErrorKey].focus();
+      } else if (firstErrorKey === 'phoneOrEmail') {
+        this.$refs.phone?.focus();
+      }
+    }
+  } catch (error) {
+    console.error(error);
+    const data = error.response?.data;
+
+    if (data && data.status === 'Failed') {
+      const fieldErrors = data.errors || {};
+      this.errors = { ...this.errors, ...fieldErrors };
+
+      // ✅ 顯示 errors.phoneOrEmail
+      this.showCentralAlert(fieldErrors.phoneOrEmail || '註冊失敗，請稍後再試');
+
+      const firstErrorKey = Object.keys(fieldErrors)[0];
+      if (this.$refs[firstErrorKey]) {
+        this.$refs[firstErrorKey].focus();
+      } else if (firstErrorKey === 'phoneOrEmail') {
+        this.$refs.phone?.focus();
+      }
+    } else {
+      // 非預期錯誤
+      this.showCentralAlert('註冊失敗，請稍後再試');
+    }
+  }
+},
     goLogin() {
       this.$router.push('/');
     }

@@ -1,238 +1,256 @@
 <template>
-  <div class="scale-wrapper">
-   <div class="title-header">
-  <img src="@/assets/icons/header-icon.svg" class="header-icon" />
-  <h1 class="page-title">會員登入介面</h1>
-</div>
+  <div class="main-container">
+    <header class="title-member-data">
+      <img src="@/assets/icons/header-icon.svg" alt="Logo" class="header-icon" />
+      <span class="header-title">會員管理</span>
+    </header>
 
-    <div class="account-box">
-    <h2 class="account-title">帳號資訊</h2>
-      <AccountItem title="暱稱" :value="nickname" @edit="goToModifyNickname" />
-      <AccountItem title="帳號名稱" :value="account" :editable="false" />
-      <AccountItem title="Email" :value="email" @edit="goToModifyEmail" />
-      <AccountItem title="密碼" :value="passwordDisplay" @edit="goToModifyPassword" />
+    <section class="account-section" v-if="!isGuest">
+      <div class="section-title">帳號資訊</div>
+      <div class="account-item" v-for="(item, index) in memberFields" :key="index">
+        <div class="label">{{ item.label }}</div>
+        <div class="value">{{ item.value }}</div>
+        <div class="edit-button" v-if="item.editable">
+          <div class="icon" :style="{ backgroundImage: `url(${item.icon})` }" @click="handleEdit(item.label)"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="action-buttons" v-if="!isGuest">
+      <button class="logout" @click="logout">登出</button>
+      <button class="delete" @click="goToDeleteAccount">刪除帳號</button>
     </div>
 
-    <div class="button-group">
-      <button class="btn" @click="logout">登出</button>
-      <button class="btn delete" @click="goToDeleteAccount">刪除帳號</button>
-    </div>
-
-    <div class="extra-actions">
-      <button class="tag">黑名單查看</button>
-      <button class="tag">問題</button>
-    </div>
-    <AlertModal v-if="showModal" :message="modalMessage" @close="showModal = false" @confirm="handleConfirm"/>
+    <section class="extra-options">
+      <button class="option">黑名單查看</button>
+      <button class="option">問題</button>
+    </section>
   </div>
-  
 </template>
 
-
 <script setup>
-import AlertModal from '@/components/AlertModal.vue'
-import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import AccountItem from './AccountItem.vue'
 
 const router = useRouter()
-const nickname = ref('') // 從 API 取得
-const account = ref('')
-const email = ref('')
-const passwordDisplay = ref('********')
-const pendingRedirect = ref(false)
+const isGuest = ref(false)
+const memberFields = ref([])
 
-const showModal = ref(false)
-const modalMessage = ref('')
-
-const showAlert = (message, redirect = false) => {
-  modalMessage.value = message
-  showModal.value = true
-  pendingRedirect.value = redirect
-}
-
-const handleConfirm = () => {
-  if (pendingRedirect.value) {
-    router.push('/login')
+const parseJwt = (token) => {
+  try {
+    const base64Url = token.split('.')[1]
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(decodeURIComponent(escape(window.atob(base64))))
+  } catch (e) {
+    return null
   }
-  showModal.value = false
 }
 
-
-const goToModifyNickname = () => router.push('/modify-nickname')
-const goToModifyEmail = () => router.push('/update-email')
-const goToModifyPassword = () => router.push('/modify-password')
-const goToDeleteAccount = () => {
-  console.log('點擊了刪除帳號按鈕')
-  router.push('/delete-account')
-}
-
-const logout = async () => {
-  console.log('使用者點擊了登出')
+const fetchProfile = async () => {
   const token = localStorage.getItem('userToken')
-  if (!token) {
-    showAlert('您尚未登入')
-    return
-  }
+  const payload = parseJwt(token)
+  isGuest.value = payload?.Role === 'Guest'
+
+  if (isGuest.value) return
 
   try {
-    const res = await axios.post('/api/MemberManagement/Logout', {}, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+    const response = await axios.get('/api/MemberManagement/profile', {
+      headers: { Authorization: `Bearer ${token}` }
     })
 
-    if (res.data.status === 'Success') {
-      localStorage.removeItem('userToken')
-      showAlert('登出成功，返回登入畫面', true)
-    } else {
-      showAlert('登出失敗，請稍後再試')
+    if (response.data.status === 'Success') {
+      memberFields.value = [
+  { label: '暱稱', value: response.data.nickname, editable: true, icon: require('@/assets/icons/icon.svg') },
+  { label: '帳號名稱', value: response.data.accountName, editable: false },
+  { label: 'Email', value: response.data.email, editable: true, icon: require('@/assets/icons/icon.svg') },
+  { label: '密碼', value: '******', editable: true, icon: require('@/assets/icons/icon.svg') }
+]
     }
-  } catch (err) {
-    console.error('登出錯誤:', err)
-    showAlert('伺服器錯誤，登出失敗')
-  }
-}
-
-const fetchUserProfile = async () => {
-  const token = localStorage.getItem('userToken')
-  if (!token) {
-  showAlert('請先登入', true) 
-  return
-}
-
-  try {
-    const res = await axios.get('/api/MemberManagement/profile', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-
-    if (res.data.status === 'Success') {
-      // 從 JWT payload 解碼出帳號資訊
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      nickname.value = payload.Nickname || '使用者'
-      account.value = payload.sub || '帳號'
-      email.value = payload.Email || '未知'
-    } else {
-      showAlert('找不到使用者資料', true)
-    }
-  } catch (err) {
-    console.error('取得會員資料失敗:', err)
-    showAlert('取得會員資料失敗，請重新登入', true)
+  } catch (error) {
+    console.error('取得使用者資訊失敗', error)
   }
 }
 
 onMounted(() => {
-  fetchUserProfile()
+  fetchProfile()
+
+  // 檢查 query 參數是否帶有 ?updated=true
+  const query = router.currentRoute.value.query
+  if (query.updated === 'true') {
+    // 重新刷新會員資料
+    console.log('偵測到更新，重新載入資料...')
+    fetchProfile()
+    
+    // 清除 URL 中的 query（避免重新整理又觸發）
+    router.replace({ query: {} })
+  }
 })
 
-onBeforeUnmount(() => {
+function handleEdit(label) {
+  if (label === '暱稱') router.push('/modify-nickname')
+  else if (label === 'Email') router.push('/update-email')
+  else if (label === '密碼') router.push('/modify-password')
+}
 
-})
+const logout = async () => {
+  try {
+    const token = localStorage.getItem('userToken')
+    const response = await axios.post('/api/MemberManagement/Logout', {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (response.data.status === 'Success') {
+      localStorage.removeItem('userToken')
+      router.push('/login')
+    }
+  } catch (error) {
+    console.error('登出失敗', error)
+  }
+}
+
+const goToDeleteAccount = () => {
+  router.push('/delete-account')
+}
 </script>
 
 <style scoped>
-.scale-wrapper{
+.main-container {
   width: 100%;
   height: 100vh;
   max-width: 100%;
-  font-family: 'Inter', sans-serif;
-  background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
+  margin: 0 auto;
+  background: linear-gradient(180deg, #d4d7f9, #ffffff);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 16px;
-  box-sizing: border-box;
+  padding-top: 0 16px;
   position: relative;
 }
-.title-header {
-  display: flex;
+
+.title-member-data {
   width: 100%;
-  height: 40px;
-  padding: 0 21px;
-  justify-content: flex-start; /*調整標題文字位置*/
+  background: #fff;
+  display: flex;
+  justify-content: flex-start;
   align-items: center;
   gap: 10px;
-  background-color: #fff;
+  height: 40px;
+  padding: 0 20px;
 }
 
 .header-icon {
-  width: 32px;
-  height: 32px;
+  width: 39px;
+  height: 39px;
 }
 
-.page-title {
-  color: #000;
-  font-family: Inter, sans-serif;
+.header-title {
   font-size: 20px;
-  font-weight: 700;
-  margin: 0;
-}
-.account-box {
-  position: relative;  /* 絕對定位以它為基準 */
-  padding-top: 40px;   /* 給標題留一點空間 */
-  padding-left: 20px;  /* 控制內容內縮 */
-  padding-right: 20px;
-  padding-bottom: 20px;
-  background: #fff;
-  border-radius: 15px;
-  margin-top: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-.account-title {
-  position: absolute;
-  top: 12px;
-  left: 20px;
-  font-size: 18px;
   font-weight: bold;
-  color: #333;
-  margin: 0;
 }
-.button-group {
+
+.account-section {
+  width: 90%;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  max-width: 100%;
+  padding: 0 16px;
+  margin-top: 20px;
+}
+
+.section-title {
+  font-size: 25px;
+  font-weight: 500;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.account-item {
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
 }
-.btn {
-  width: 165px;               
-  height: 60px; 
+
+.label {
+  font-size: 20px;
+  width: 90px;
+  font-family: 'Roboto Mono', monospace;
+}
+
+.value {
+  flex-grow: 1;
+  margin-right: 10px;
+  padding: 6px 10px;
+  border: 1px dashed #000;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: bold;
+  font-family: 'Inter', sans-serif;
+}
+
+.edit-button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #000;
+  border-radius: 8px;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon {
+  width: 15px;
+  height: 15px;
+  background-size: cover;
+  background-position: center;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.logout {
+  width: 165px;
+  height: 60px;
   flex: 1;
   padding: 14px;
   font-size: 16px;
   font-weight: bold;
   border: none;
   border-radius: 20px;
-  background: #5a67d8;
+  background-color: #5a82d8;
   color: #fff;
   cursor: pointer;
 }
-.btn.delete {
+
+.delete {
+  padding: 10px 20px;
+  border-radius: 20px;
   background-color: #f8d7da;
   color: #721c24;
+  font-size: 18px;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+  font-family: 'Roboto Mono', monospace;
 }
-.extra-actions {
+
+.extra-options {
   display: flex;
-  justify-content: space-evenly;
-  margin-top: 40px;
-  gap: 20px;/*黑名單間距*/
+  justify-content: center;
+  gap: 40px;
 }
-.tag {
-  width: 120px;                  
-  height: 50px;                  
-  background: #8d9afc;
+
+.option {
+  padding: 10px 20px;
+  background: #d7dbfa;
   border: 2px solid #bbc3ff;
   border-radius: 30px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #ffffff;
-  cursor: pointer;
+  font-size: 18px;
+  font-family: 'Roboto Mono', monospace;
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
-
-  display: flex;  /* 讓文字置中 */
-  align-items: center;
-  justify-content: center;
 }
-
-</style>  
+</style>

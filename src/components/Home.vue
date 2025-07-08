@@ -270,8 +270,6 @@ const goToAllNews = () => {
 .notification-bar {
   display: flex;
   align-items: center;
-  background: #fff;
-  align-items: center;
   background: #fff;              /* 白底 */
   border-radius: 12px;           /*  圓角 */
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); /*  陰影 */

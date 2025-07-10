@@ -1,55 +1,65 @@
 <template>
   <div class="main-container">
-    <!-- 頁首 -->
     <div class="title-header">
       <img src="@/assets/icons/header-icon.svg" class="header-icon" />
-      <h1 class="page-title">重設密碼</h1>
+      <h1 class="page-title">修改密碼</h1>
     </div>
 
-    <!-- 表單區 -->
-    <form class="update-form" >
-      <!-- 新密碼欄位 -->
+    <form class="form" @submit.prevent="submitForm">
+      <!-- 原本密碼 -->
       <div class="form-group">
-        <input
-          v-model="password"
-          ref="passwordRef"
-          type="password"
-          placeholder="請輸入新密碼"
-          maxlength="20"
-          @blur="validatePassword"
-        />
-        <small :class="errors.password ? 'error-text' : 'hint-text'">
-          {{ errors.password || '需含大小寫英數，12-20 位，不含特殊符號' }}
+        <input v-model="originalPassword" type="password" placeholder="請輸入原本密碼" @blur="validateOriginalPassword" />
+        <small :class="errors.originalPassword ? 'error-text' : 'hint-text'">
+          {{ errors.originalPassword || '密碼格式錯誤，格式為12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
       </div>
 
-      <!-- 確認密碼欄位 -->
+      <!-- 新密碼 -->
       <div class="form-group">
-        <input
-          v-model="confirmPassword"
-          ref="confirmPasswordRef"
-          type="password"
-          placeholder="請再次輸入新密碼"
-          maxlength="20"
-          @blur="validateConfirmPassword"
-        />
+        <input v-model="newPassword" type="password" placeholder="請輸入新密碼" @blur="validateNewPassword" />
+        <small :class="errors.newPassword ? 'error-text' : 'hint-text'">
+          {{ errors.newPassword || '密碼格式錯誤，格式為12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
+        </small>
+      </div>
+
+      <!-- 再次輸入新密碼 -->
+      <div class="form-group">
+        <input v-model="confirmPassword" type="password" placeholder="請再次輸入新密碼" @blur="validateConfirmPassword" />
         <small :class="errors.confirmPassword ? 'error-text' : 'hint-text'">
-          {{ errors.confirmPassword || '請再次輸入與上方一致的新密碼' }}
+          {{ errors.confirmPassword || '需與上面密碼一致' }}
         </small>
       </div>
 
-      <button @click="sendVerificationCode">發送驗證碼</button>
+      <!-- Email -->
+      <div class="form-group email-group">
+        <div class="email-row">
+          <input v-model="email" type="email" placeholder="請輸入 Email" @blur="validateEmail" />
+          <button type="button" class="code-button" :disabled="isSending" @click="sendCode">
+            {{ isSending ? countdown + ' 秒' : '獲取驗證碼' }}
+          </button>
+        </div>
+        <small :class="errors.email ? 'error-text' : 'hint-text'">
+          {{ errors.email || '請輸入有效的 Email 格式' }}
+        </small>
+      </div>
 
+      <!-- 驗證碼 -->
+      <div class="form-group">
+        <input v-model="code" type="text" maxlength="6" placeholder="請輸入6位數驗證碼" @blur="validateCode" />
+        <small :class="errors.code ? 'error-text' : 'hint-text'">
+          {{ errors.code || '請輸入6位數字驗證碼' }}
+        </small>
+      </div>
 
-      <!-- 操作按鈕 -->
+      <!-- 按鈕區塊 -->
       <div class="button-group">
         <button type="button" class="main-button cancel" @click="goBack">取消修改</button>
-        <button type="submit" class="main-button" @click="submitForm">確認修改</button>
+        <button type="submit" class="main-button">確認修改</button>
       </div>
     </form>
-
-    <AlertModal :visible="showModal" :message="modalMessage" @close="handleModalClose" @confirm="handleModalConfirm"/>
   </div>
+  <AlertModal :visible="showModal" :message="alertMessage" @close="showModal = false" />
+
 </template>
 
 <script setup>
@@ -58,167 +68,176 @@ import { useRouter } from 'vue-router'
 import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
 
-const email = ref('')
-const verificationCode = ref('')
-const currentPassword = ref('')
-const password = ref('')
+const router = useRouter()
+const originalPassword = ref('')
+const newPassword = ref('')
 const confirmPassword = ref('')
-
-const emailRef = ref(null)
-const currentPasswordRef = ref(null)
-const passwordRef = ref(null)
-const confirmPasswordRef = ref(null)
-
-const errors = ref({
-  email: '',
-  verificationCode: '',
-  currentPassword: '',
-  password: '',
-  confirmPassword: ''
-})
+const email = ref('')
+const code = ref('')
+const isSending = ref(false)
+const countdown = ref(60)
+let timer = null
 
 const showModal = ref(false)
-const modalMessage = ref('')
-const shouldRedirect = ref(false)
+const alertMessage = ref('')
 
-const showAlert = (msg) => {
-  modalMessage.value = msg
-  showModal.value = true
+const errors = ref({
+  originalPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+  email: '',
+  code: ''
+})
+
+const validateOriginalPassword = () => {
+  const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/
+  errors.value.originalPassword = pattern.test(originalPassword.value)
+    ? ''
+    : '密碼格式錯誤，須包含大小寫與數字，12-20字元'
 }
 
-// 驗證格式
-const validatePassword = () => {
+const validateNewPassword = () => {
   const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/
-  errors.value.password = pattern.test(password.value)
+  errors.value.newPassword = pattern.test(newPassword.value)
     ? ''
-    : '密碼格式錯誤（需含大小寫與數字，12-20 位）'
+    : '新密碼格式錯誤，須包含大小寫與數字，12-20字元'
 }
 
 const validateConfirmPassword = () => {
-  errors.value.confirmPassword =
-    confirmPassword.value === password.value && confirmPassword.value !== ''
-      ? ''
-      : '密碼不一致，請重新確認'
+  errors.value.confirmPassword = confirmPassword.value === newPassword.value
+    ? ''
+    : '與新密碼不一致'
 }
 
-const validateRequired = () => {
-  errors.value.email = email.value ? '' : '請輸入 Email'
-  errors.value.currentPassword = currentPassword.value ? '' : '請輸入目前密碼'
-  errors.value.verificationCode = verificationCode.value ? '' : '請輸入驗證碼'
+const validateEmail = () => {
+  const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  errors.value.email = pattern.test(email.value)
+    ? ''
+    : 'Email 格式錯誤'
 }
 
-const router = useRouter()
+const validateCode = () => {
+  const pattern = /^\d{6}$/
+  errors.value.code = pattern.test(code.value)
+    ? ''
+    : '驗證碼須為6位數字'
+}
 
-const submitForm = async () => {
-  validateRequired()
-  validatePassword()
-  validateConfirmPassword()
-
-  const firstErrorRef =
-    errors.value.email ? emailRef :
-    errors.value.currentPassword ? currentPasswordRef :
-    errors.value.password ? passwordRef :
-    errors.value.confirmPassword ? confirmPasswordRef :
-    null
-
-  if (firstErrorRef) {
-    firstErrorRef.value?.focus()
-    return
-  }
+// 發送驗證碼
+const sendCode = async () => {
+  validateEmail()
+  if (errors.value.email) return
 
   try {
     const token = localStorage.getItem('userToken')
-    const response = await api.post('/api/MemberManagement/ChangePassword', {
+    const response = await api.post(
+      '/api/MemberManagement/VerifyChangePasswordCode',
+      { sentEmail: email.value },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    if (response.data.status === 'Success') {
+      showAlert('驗證碼已發送至 Email')
+      isSending.value = true
+      countdown.value = 60
+      timer = setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) {
+          clearInterval(timer)
+          isSending.value = false
+        }
+      }, 1000)
+    } else {
+      showAlert(response.data.message || '驗證碼發送失敗')
+    }
+  } catch (error) {
+    console.error(error)
+    const message = error.response?.data?.message || '伺服器錯誤'
+    showAlert(message)
+  }
+}
+
+
+// 修改密碼
+const submitForm = async () => {
+  validateOriginalPassword()
+  validateNewPassword()
+  validateConfirmPassword()
+  validateEmail()
+  validateCode()
+
+  const hasError = Object.values(errors.value).some(msg => msg)
+  if (hasError) return
+
+  try {
+    const token = localStorage.getItem('userToken')
+    const payload = {
       ChangePassword_Email: email.value,
-      ChangePassword_VerificationCode: verificationCode.value,
-      CurrentPassword: currentPassword.value,
-      ChangePassword_NewPassword: password.value
-    }, {
+      CurrentPassword: originalPassword.value,
+      ChangePassword_NewPassword: newPassword.value,
+      ChangePassword_VerificationCode: code.value
+    }
+
+    const response = await api.post('/api/MemberManagement/ChangePassword', payload, {
       headers: {
         Authorization: `Bearer ${token}`
       }
     })
 
     if (response.data.status === 'Success') {
-      showAlert(response.data.message)
-      shouldRedirect.value = true  // 等待 Modal 關閉再跳轉
+      showAlert(response.data.message || '密碼修改成功')
+      router.push('/member-management')
     } else {
-      showAlert(response.data.message || '修改失敗，請稍後再試')
+      showAlert(response.data.message || '密碼修改失敗')
     }
   } catch (error) {
-    const msg = error.response?.data?.message || '修改失敗，請稍後再試'
+    console.error(error)
+    // 顯示後端回傳的錯誤訊息
+    const msg = error.response?.data?.message || '伺服器錯誤，請稍後再試'
     showAlert(msg)
   }
 }
 
-const sendVerificationCode = async () => {
-  if (!email.value) {
-    errors.value.email = '請輸入 Email'
-    emailRef.value?.focus()
-    return
-  }
 
-  try {
-    const token = localStorage.getItem('userToken')
-    const response = await api.post('/api/MemberManagement/VerifyChangePasswordCode', {
-      sentEmail: email.value
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-
-    showAlert(response.data.message)
-  } catch (error) {
-    const msg = error.response?.data?.message || '發送失敗，請稍後再試'
-    showAlert(msg)
-  }
+const showAlert = (message) => {
+  alertMessage.value = message
+  showModal.value = true
+  console.log('顯示 Modal:', showModal.value)  
 }
 
-// 處理 Modal 關閉
 
-const handleModalClose = () => {
-  showModal.value = false
-}
-
-const handleModalConfirm = () => {
-  showModal.value = false
-  if (shouldRedirect.value) {
-    shouldRedirect.value = false
-    router.push('/')
-  }
-}
-
-// 取消修改 ➜ 回會員管理
-const goBack = () => router.push('/member-management')
+const goBack = () => router.push('/')
 </script>
-
-
 
 
 <style scoped>
 .main-container {
-    width: 100%;
-    height: 100vh;
-    max-width: 100%;
-    font-family: 'Inter', sans-serif;
-    background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0 16px;
-    box-sizing: border-box;
-    position: relative; 
+  width: 100%;
+  height: 100vh;
+  max-width: 100%;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px;
+  box-sizing: border-box;
+  position: relative;
 }
 
 .title-header {
   display: flex;
   width: 100%;
+  height: 40px;
+  padding: 0 21px;
+  justify-content: flex-start;
   align-items: center;
   gap: 10px;
   background-color: #fff;
-  padding: 0 21px;
-  height: 40px;
 }
 
 .header-icon {
@@ -229,20 +248,22 @@ const goBack = () => router.push('/member-management')
 .page-title {
   font-size: 20px;
   font-weight: 700;
+  color: #000;
+  margin: 0;
 }
 
-.update-form {
+.form {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   padding-top: 16px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 input {
@@ -260,21 +281,28 @@ input:focus {
   outline: none;
 }
 
-.hint-text {
-  font-size: 12px;
-  color: #666;
+.email-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.error-text {
-  font-size: 12px;
-  color: red;
+.code-button {
+  height: 44px;
+  min-width: 100px;
+  font-size: 14px;
+  padding: 0 12px;
+  border: 2px solid #544cbf;
+  border-radius: 20px;
+  background: #544cbf;
+  color: #fff;
+  cursor: pointer;
 }
 
 .button-group {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   gap: 10px;
-  margin-top: 16px;
 }
 
 .main-button {
@@ -288,8 +316,19 @@ input:focus {
   color: #fff;
   cursor: pointer;
 }
+
 .main-button.cancel {
   background: #ff3535;
   color: #ffffff;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #666;
+}
+
+.error-text {
+  font-size: 12px;
+  color: red;
 }
 </style>

@@ -33,7 +33,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '@/api'
+import axios from 'axios'
 import AlertModal from '@/components/AlertModal.vue' 
 
 const router = useRouter()
@@ -88,7 +88,7 @@ const fetchProfile = async () => {
   if (isGuest.value) return
 
   try {
-    const { data } = await api.get('/api/MemberManagement/profile', {
+    const { data } = await axios.get('/api/MemberManagement/profile', {
       headers: { Authorization: `Bearer ${token}` }
     })
 
@@ -138,7 +138,7 @@ const handleModalCancel = () => {
 const doLogout = async () => {
   try {
     const token = localStorage.getItem('userToken')
-    const { data } = await api.post('/api/MemberManagement/Logout', {}, {
+    const { data } = await axios.post('/api/MemberManagement/Logout', {}, {
       headers: { Authorization: `Bearer ${token}` }
     })
 
@@ -163,7 +163,7 @@ const doLogout = async () => {
 function handleEdit(label) {
   if (label === '暱稱')      router.push('/modify-nickname')
   else if (label === 'Email') router.push('/update-email')
-  else if (label === '密碼')  router.push('/modify-password')
+  else if (label === '密碼')  router.push('/reset-password')
 }
 
 const goToDeleteAccount = () => router.push('/delete-account')

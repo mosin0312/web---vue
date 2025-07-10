@@ -260,7 +260,7 @@ export default {
     //  成功註冊 - HTTP 201
     if (res.status === 201 && res.data.status === 'Success') {
       this.showCentralAlert('註冊成功，可以進行登入！');
-      setTimeout(() => this.$router.push('/'), 1000); 
+      setTimeout(() => this.$router.push('/'), 5000); 
     } else {
       // 處理非預期錯誤
       const fieldErrors = res.data?.errors || {};

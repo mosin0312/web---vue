@@ -46,6 +46,13 @@
           <button type="submit" class="main-button">登入</button>
           <button type="button" class="main-button" @click="goToRegister">註冊新帳號</button>
         </div>
+  
+        <div class="keep-logged-in">
+        <label class="keep-logged-in"> 
+        <input type="checkbox" :checked="rememberMe" @click="rememberMe = !rememberMe" />
+          <span>保持登入狀態</span>
+          </label>
+        </div>
         
         <div class="links">
           <router-link to="/forget-password">忘記密碼?</router-link>
@@ -73,6 +80,7 @@ const username = ref('');
 const password = ref('');
 const email = ref('');
 const captcha = ref('');
+const rememberMe = ref(false);
 const countdown = ref(0);
 const timer = ref(null);
 const errors = ref({});
@@ -151,7 +159,11 @@ function validateLoginFields() {
 }
 
 //  獲取驗證碼
+import { nextTick } from 'vue'
+
 async function getCode() {
+  await nextTick(); // 確保最新值已寫入 v-model
+
   validateUsername();
   validatePassword();
   validateEmail();

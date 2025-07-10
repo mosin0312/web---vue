@@ -19,7 +19,6 @@ instance.interceptors.response.use(
     if (status === 401 || userStatus === 'Logout') {
       // 清除所有登入資訊
       localStorage.removeItem('userToken')
-      sessionStorage.removeItem('userToken')
       localStorage.removeItem('userEmail')
       localStorage.removeItem('nickname')
       localStorage.removeItem('accountName')

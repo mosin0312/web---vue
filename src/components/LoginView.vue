@@ -46,13 +46,6 @@
           <button type="submit" class="main-button">登入</button>
           <button type="button" class="main-button" @click="goToRegister">註冊新帳號</button>
         </div>
-  
-        <div class="keep-logged-in">
-        <label class="keep-logged-in"> 
-        <input type="checkbox" :checked="rememberMe" @click="rememberMe = !rememberMe" />
-          <span>保持登入狀態</span>
-          </label>
-        </div>
         
         <div class="links">
           <router-link to="/forget-password">忘記密碼?</router-link>
@@ -80,7 +73,6 @@ const username = ref('');
 const password = ref('');
 const email = ref('');
 const captcha = ref('');
-const rememberMe = ref(false);
 const countdown = ref(0);
 const timer = ref(null);
 const errors = ref({});
@@ -210,21 +202,13 @@ async function submitForm() {
     });
 
     if (response.data.status === 'Success') {
-  const token = response.data.token;
+      localStorage.setItem('userToken', response.data.token);
+      localStorage.setItem('userEmail', email.value);
+      localStorage.setItem('accountName', response.data.accountName);
+      localStorage.setItem('userRole', 'User');
 
-  // 根據是否保持登入決定存在哪
-  if (rememberMe.value) {
-    localStorage.setItem('userToken', token); // 永久保存
-  } else {
-    sessionStorage.setItem('userToken', token); // 關閉瀏覽器失效
-  }
-
-  localStorage.setItem('userEmail', email.value);
-  localStorage.setItem('accountName', response.data.accountName);
-  localStorage.setItem('userRole', 'User');
-
-  showAlert('登入成功！', true);
-}else {
+      showAlert('登入成功！', true);
+    } else {
       showAlert(response.data.message || '登入失敗');
     }
   } catch (error) {

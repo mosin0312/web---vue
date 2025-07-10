@@ -76,6 +76,12 @@
 </button>
 <!--測試跳轉用，之後刪掉 -->
 
+  <!--測試跳轉用，之後刪掉 -->
+<button @click="goToPC" class="test-btn">
+  測試跳轉到 phoneCard.vue
+</button>
+<!--測試跳轉用，之後刪掉 -->
+
 <AlertModal
   v-if="showLoginModal"  message="請先登入會員才能使用此功能"  @close="showLoginModal = false"/>
   </div>
@@ -100,6 +106,14 @@ const goToMember = () => {
     return
   }
   router.push('/member-management')
+}
+
+const goToPC = () => {
+  if (!isUserLoggedIn()) {
+    showLoginModal.value = true
+    return
+  }
+  router.push('/phonecard')
 }
 
 //  輪播圖資料
@@ -184,7 +198,7 @@ const newsList = ref([])
 
 const fetchNews = async () => {
   try {
-    const token = localStorage.getItem('userToken')
+    const token = localStorage.getItem('userToken') 
     const response = await api.get('/api/MemberManagement/news', {
       headers: {
         Authorization: `Bearer ${token}`

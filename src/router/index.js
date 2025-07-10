@@ -17,6 +17,7 @@ import ModifyPasswordView from '@/components/ModifyPasswordView.vue'
 import UpdateEmail from '@/components/UpdateEmail.vue'
 import DeleteAccountView from '@/components/DeleteAccountView.vue'
 import Home from '@/components/Home.vue'
+import PhoneCard from '@/components/PhoneCard.vue'
 
 const routes = [
   { path: '/', component: LoginView },
@@ -37,6 +38,7 @@ const routes = [
   {path: '/modify-password',component:ModifyPasswordView},
   {path: '/update-email',component:UpdateEmail},
   {path: '/home',component:Home},
+  {path: '/phonecard',component:PhoneCard},
 ]
 
 const router = createRouter({

@@ -13,18 +13,21 @@
       >
         一般簡訊
       </button>
+
       <button
         :class="['button-sms-category', selectedCategory === 'strange' ? 'active' : '']"
         @click="changeCategory('strange')"
       >
         陌生簡訊
       </button>
+
       <button
         :class="['button-sms-category', selectedCategory === 'screenshot' ? 'active' : '']"
         @click="changeCategory('screenshot')"
       >
         截圖分析
       </button>
+      
     </div>
 
     <!-- 簡訊列表 -->
@@ -66,7 +69,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '@/api'
 
 const router = useRouter()
 const selectedCategory = ref('general')
@@ -116,7 +119,7 @@ const smsList = ref([...fallbackList])
 onMounted(async () => {
   try {
     const token = localStorage.getItem('token')
-    const res = await axios.get('/api/sms', {
+    const res = await api.get('/api/sms', {
       headers: { Authorization: `Bearer ${token}` },
       timeout: 3000
     })
@@ -136,7 +139,7 @@ onMounted(async () => {
 const changeCategory = (category) => {
   selectedCategory.value = category
   if (category === 'screenshot') {
-    router.push('/screenshot') // 或你指定的截圖分析頁面
+    router.push('/screenshot') 
   }
 }
 

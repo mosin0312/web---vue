@@ -53,11 +53,15 @@ const showAlert = (msg) => {
   showModal.value = true
 }
 
-// 驗證暱稱
+// 驗證暱稱：不能為空、最多 20 個字
 const validateNickname = () => {
-  errors.value.nickname = nickname.value.trim() === ''
-    ? '暱稱不能為空'
-    : ''
+  if (nickname.value.trim() === '') {
+    errors.value.nickname = '暱稱不能為空'
+  } else if (nickname.value.length > 20) {
+    errors.value.nickname = '暱稱長度不可超過 20 個字'
+  } else {
+    errors.value.nickname = ''
+  }
 }
 
 // 返回上一頁
@@ -72,7 +76,7 @@ const submitForm = async () => {
   }
 
   try {
-    const token = localStorage.getItem('userToken') // 取用登入後的 token
+    const token = localStorage.getItem('userToken')
     const response = await axios.put(
       '/api/MemberManagement/update-nickname',
       { newNickname: nickname.value },
@@ -94,6 +98,7 @@ const submitForm = async () => {
   }
 }
 </script>
+
 
 
 <style scoped>

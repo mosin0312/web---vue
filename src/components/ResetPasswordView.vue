@@ -7,7 +7,7 @@
     </div>
 
     <!-- 表單區 -->
-    <form class="login-form" @submit.prevent="submitForm">
+    <form class="update-form" >
       <!-- 新密碼欄位 -->
       <div class="form-group">
         <input
@@ -38,35 +38,55 @@
         </small>
       </div>
 
+      <button @click="sendVerificationCode">發送驗證碼</button>
+
+
       <!-- 操作按鈕 -->
       <div class="button-group">
         <button type="button" class="main-button cancel" @click="goBack">取消修改</button>
-        <button type="submit" class="main-button">確認修改</button>
+        <button type="submit" class="main-button" @click="submitForm">確認修改</button>
       </div>
     </form>
 
-    <AlertModal :visible="showModal" :message="modalMessage" @close="showModal = false" />
+    <AlertModal :visible="showModal" :message="modalMessage" @close="handleModalClose" @confirm="handleModalConfirm"/>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 import AlertModal from '@/components/AlertModal.vue'
 
+const email = ref('')
+const verificationCode = ref('')
+const currentPassword = ref('')
 const password = ref('')
 const confirmPassword = ref('')
+
+const emailRef = ref(null)
+const currentPasswordRef = ref(null)
 const passwordRef = ref(null)
 const confirmPasswordRef = ref(null)
-const errors = ref({ password: '', confirmPassword: '' })
+
+const errors = ref({
+  email: '',
+  verificationCode: '',
+  currentPassword: '',
+  password: '',
+  confirmPassword: ''
+})
 
 const showModal = ref(false)
 const modalMessage = ref('')
+const shouldRedirect = ref(false)
+
 const showAlert = (msg) => {
   modalMessage.value = msg
   showModal.value = true
 }
 
+// 驗證格式
 const validatePassword = () => {
   const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/
   errors.value.password = pattern.test(password.value)
@@ -81,22 +101,100 @@ const validateConfirmPassword = () => {
       : '密碼不一致，請重新確認'
 }
 
-const submitForm = () => {
-  validatePassword()
-  validateConfirmPassword()
-
-  if (errors.value.password || errors.value.confirmPassword) {
-    const firstError = errors.value.password ? passwordRef : confirmPasswordRef
-    firstError.value?.focus()
-    return
-  }
-
-  showAlert('密碼已成功更新')
+const validateRequired = () => {
+  errors.value.email = email.value ? '' : '請輸入 Email'
+  errors.value.currentPassword = currentPassword.value ? '' : '請輸入目前密碼'
+  errors.value.verificationCode = verificationCode.value ? '' : '請輸入驗證碼'
 }
 
 const router = useRouter()
-const goBack = () => router.push('/')
+
+const submitForm = async () => {
+  validateRequired()
+  validatePassword()
+  validateConfirmPassword()
+
+  const firstErrorRef =
+    errors.value.email ? emailRef :
+    errors.value.currentPassword ? currentPasswordRef :
+    errors.value.password ? passwordRef :
+    errors.value.confirmPassword ? confirmPasswordRef :
+    null
+
+  if (firstErrorRef) {
+    firstErrorRef.value?.focus()
+    return
+  }
+
+  try {
+    const token = localStorage.getItem('userToken')
+    const response = await axios.post('/api/MemberManagement/ChangePassword', {
+      ChangePassword_Email: email.value,
+      ChangePassword_VerificationCode: verificationCode.value,
+      CurrentPassword: currentPassword.value,
+      ChangePassword_NewPassword: password.value
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (response.data.status === 'Success') {
+      showAlert(response.data.message)
+      shouldRedirect.value = true  // 等待 Modal 關閉再跳轉
+    } else {
+      showAlert(response.data.message || '修改失敗，請稍後再試')
+    }
+  } catch (error) {
+    const msg = error.response?.data?.message || '修改失敗，請稍後再試'
+    showAlert(msg)
+  }
+}
+
+const sendVerificationCode = async () => {
+  if (!email.value) {
+    errors.value.email = '請輸入 Email'
+    emailRef.value?.focus()
+    return
+  }
+
+  try {
+    const token = localStorage.getItem('userToken')
+    const response = await axios.post('/api/MemberManagement/VerifyChangePasswordCode', {
+      sentEmail: email.value
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    showAlert(response.data.message)
+  } catch (error) {
+    const msg = error.response?.data?.message || '發送失敗，請稍後再試'
+    showAlert(msg)
+  }
+}
+
+// 處理 Modal 關閉
+
+const handleModalClose = () => {
+  showModal.value = false
+}
+
+const handleModalConfirm = () => {
+  showModal.value = false
+  if (shouldRedirect.value) {
+    shouldRedirect.value = false
+    router.push('/')
+  }
+}
+
+// 取消修改 ➜ 回會員管理
+const goBack = () => router.push('/member-management')
 </script>
+
+
+
 
 <style scoped>
 .main-container {
@@ -133,7 +231,7 @@ const goBack = () => router.push('/')
   font-weight: 700;
 }
 
-.login-form {
+.update-form {
   width: 100%;
   display: flex;
   flex-direction: column;

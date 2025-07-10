@@ -31,7 +31,7 @@ const routes = [
   {path: '/anti-fraud-helpline',component:AntiFraudHelpline},
   {path: '/common-fraud-methods',component:CommonFraudMethods},
   {path: '/anti-fraud-pomption',component:AntifraudPomotion},
-  {path: '/member-management',component:MemberManagementView,},//meta: { requiresAuth: true }},// 加上限制,
+  {path: '/member-management',component:MemberManagementView,},
   {path: '/modify-nickname',component:ModifyNicknameView},
   {path:'/delete-account',component:DeleteAccountView},
   {path: '/modify-password',component:ModifyPasswordView},
@@ -43,16 +43,5 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
 })
-
-// 加入全域導航守衛=
-// router.beforeEach((to, from, next) => {
-//   const token = localStorage.getItem('userToken')
-
-//   if (to.meta.requiresAuth && !token) {
-//     next({ path: '/' }) // 沒 token 就回登入畫面
-//   } else {
-//     next()
-//   }
-// })
 
 export default router

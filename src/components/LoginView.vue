@@ -61,7 +61,7 @@
         </div>
 
       </form>
-      <AlertModal :visible="showModal" :message="modalMessage" @close="handleModalClose"/>
+      <AlertModal :visible="showModal" :message="modalMessage" @confirm="handleModalClose" @close="handleModalClose"/>
     </div>
   </template>
   
@@ -70,6 +70,8 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import AlertModal from '@/components/AlertModal.vue';
 import api from '@/api'; // 封裝好的 axios instance
+import { onMounted } from 'vue'
+import { useRoute } from 'vue-router'//登出用
 
 //  固定 Guest TOKEN，僅用於登入與發送驗證碼
 const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s'; 
@@ -186,11 +188,9 @@ async function getCode() {
         if (countdown.value <= 0) clearInterval(timer.value);
       }, 1000);
     } else {
-      // 顯示後端錯誤訊息
       showAlert(response.data.message || '發送驗證碼失敗');
     }
   } catch (error) {
-    console.error(error);
     const message = error.response?.data?.message;
     showAlert(message || '發送驗證碼失敗，請稍後再試');
   }
@@ -212,18 +212,14 @@ async function submitForm() {
     if (response.data.status === 'Success') {
       localStorage.setItem('userToken', response.data.token);
       localStorage.setItem('userEmail', email.value);
-      localStorage.setItem('accountName', username.value);
-      localStorage.setItem('userRole', 'User'); //  加入會員身份紀錄
+      localStorage.setItem('accountName', response.data.accountName);
+      localStorage.setItem('userRole', 'User');
 
       showAlert('登入成功！', true);
     } else {
-      // 顯示後端傳回的具體錯誤訊息
       showAlert(response.data.message || '登入失敗');
     }
   } catch (error) {
-    console.error(error);
-
-    // 嘗試讀取後端錯誤回應中的 message
     const message = error.response?.data?.message;
     if (message) {
       showAlert(message);
@@ -256,6 +252,19 @@ const guestLogin = async () => {
 function goToRegister() {
   router.push('/register');
 }
+
+
+//登出時
+const route = useRoute()
+
+onMounted(() => {
+  if (route.query.loggedOut === 'true') {
+    showAlert('您已成功登出')
+    // 清除 URL 中的 query 參數（避免重新整理又跳出）
+    router.replace({ query: {} })
+  }
+})
+
 </script>
 
   

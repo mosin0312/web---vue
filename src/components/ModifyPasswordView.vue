@@ -10,7 +10,7 @@
       <div class="form-group">
         <input v-model="originalPassword" type="password" placeholder="請輸入原本密碼" @blur="validateOriginalPassword" />
         <small :class="errors.originalPassword ? 'error-text' : 'hint-text'">
-          {{ errors.originalPassword || '需為12-20位英文大小寫與數字，不含特殊字元' }}
+          {{ errors.originalPassword || '密碼格式錯誤，格式為12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
       </div>
 
@@ -18,7 +18,7 @@
       <div class="form-group">
         <input v-model="newPassword" type="password" placeholder="請輸入新密碼" @blur="validateNewPassword" />
         <small :class="errors.newPassword ? 'error-text' : 'hint-text'">
-          {{ errors.newPassword || '需為12-20位英文大小寫與數字，不含特殊字元' }}
+          {{ errors.newPassword || '密碼格式錯誤，格式為12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
       </div>
 
@@ -26,7 +26,7 @@
       <div class="form-group">
         <input v-model="confirmPassword" type="password" placeholder="請再次輸入新密碼" @blur="validateConfirmPassword" />
         <small :class="errors.confirmPassword ? 'error-text' : 'hint-text'">
-          {{ errors.confirmPassword || '需與新密碼一致' }}
+          {{ errors.confirmPassword || '需與上面密碼一致' }}
         </small>
       </div>
 
@@ -58,11 +58,15 @@
       </div>
     </form>
   </div>
+  <AlertModal :visible="showModal" :message="alertMessage" @close="showModal = false" />
+
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
+import AlertModal from '@/components/AlertModal.vue'
 
 const router = useRouter()
 const originalPassword = ref('')
@@ -73,6 +77,9 @@ const code = ref('')
 const isSending = ref(false)
 const countdown = ref(60)
 let timer = null
+
+const showModal = ref(false)
+const alertMessage = ref('')
 
 const errors = ref({
   originalPassword: '',
@@ -86,14 +93,14 @@ const validateOriginalPassword = () => {
   const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/
   errors.value.originalPassword = pattern.test(originalPassword.value)
     ? ''
-    : '原本密碼格式錯誤'
+    : '密碼格式錯誤，須包含大小寫與數字，12-20字元'
 }
 
 const validateNewPassword = () => {
   const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/
   errors.value.newPassword = pattern.test(newPassword.value)
     ? ''
-    : '新密碼格式錯誤'
+    : '新密碼格式錯誤，須包含大小寫與數字，12-20字元'
 }
 
 const validateConfirmPassword = () => {
@@ -116,21 +123,47 @@ const validateCode = () => {
     : '驗證碼須為6位數字'
 }
 
-const sendCode = () => {
+// 發送驗證碼
+const sendCode = async () => {
   validateEmail()
   if (errors.value.email) return
-  isSending.value = true
-  countdown.value = 60
-  timer = setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) {
-      clearInterval(timer)
-      isSending.value = false
+
+  try {
+    const token = localStorage.getItem('userToken')
+    const response = await axios.post(
+      '/api/MemberManagement/VerifyChangePasswordCode',
+      { sentEmail: email.value },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    if (response.data.status === 'Success') {
+      showAlert('驗證碼已發送至 Email')
+      isSending.value = true
+      countdown.value = 60
+      timer = setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) {
+          clearInterval(timer)
+          isSending.value = false
+        }
+      }, 1000)
+    } else {
+      showAlert(response.data.message || '驗證碼發送失敗')
     }
-  }, 1000)
+  } catch (error) {
+    console.error(error)
+    const message = error.response?.data?.message || '伺服器錯誤'
+    showAlert(message)
+  }
 }
 
-const submitForm = () => {
+
+// 修改密碼
+const submitForm = async () => {
   validateOriginalPassword()
   validateNewPassword()
   validateConfirmPassword()
@@ -140,13 +173,46 @@ const submitForm = () => {
   const hasError = Object.values(errors.value).some(msg => msg)
   if (hasError) return
 
-  // TODO: send API request here
-  alert('修改成功')
-  router.push('/member-management')
+  try {
+    const token = localStorage.getItem('userToken')
+    const payload = {
+      ChangePassword_Email: email.value,
+      CurrentPassword: originalPassword.value,
+      ChangePassword_NewPassword: newPassword.value,
+      ChangePassword_VerificationCode: code.value
+    }
+
+    const response = await axios.post('/api/MemberManagement/ChangePassword', payload, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (response.data.status === 'Success') {
+      showAlert(response.data.message || '密碼修改成功')
+      router.push('/member-management')
+    } else {
+      showAlert(response.data.message || '密碼修改失敗')
+    }
+  } catch (error) {
+    console.error(error)
+    // 顯示後端回傳的錯誤訊息
+    const msg = error.response?.data?.message || '伺服器錯誤，請稍後再試'
+    showAlert(msg)
+  }
 }
 
-const goBack = () => router.push('/member-management')
+
+const showAlert = (message) => {
+  alertMessage.value = message
+  showModal.value = true
+  console.log('顯示 Modal:', showModal.value)  
+}
+
+
+const goBack = () => router.push('/')
 </script>
+
 
 <style scoped>
 .main-container {

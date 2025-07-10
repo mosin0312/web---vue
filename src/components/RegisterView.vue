@@ -64,7 +64,7 @@
 
       <div class="button-group">
         <button type="submit" class="main-button">註冊新帳號</button>
-        <button type="button" class="main-button" @click="goLogin">返回登入</button>
+        <button type="button" class="main-button-cancel" @click="goLogin">返回登入</button>
       </div>
 
       <div class="terms-container">
@@ -191,26 +191,24 @@ export default {
   }
 },
     async sendVerificationCode() {
-      this.validateEmail();
-      if (this.errors.email) return;
+  this.validateEmail();
+  if (this.errors.email) return;
 
-      try {
-        const res = await axios.post('/api/MemberManagement/RegisterVerificationCode', {
-          SentEmail: this.form.email
-        }, {
-          headers: {
-            Authorization: `Bearer ${TOKEN}`
-          }
-        });
+  try {
+    const res = await axios.post('/api/MemberManagement/RegisterVerificationCode', {
+      SentEmail: this.form.email
+    }, {
+      headers: {
+        Authorization: `Bearer ${TOKEN}`
+      }
+    });
 
-        if (res.data.status === 'Success') {
+    if (res.data.status === 'Success') {
       this.showCentralAlert('驗證碼已發送至 Email');
       this.countdown = 60;
       this.timer = setInterval(() => {
         this.countdown--;
-        if (this.countdown <= 0) {
-          clearInterval(this.timer);
-        }
+        if (this.countdown <= 0) clearInterval(this.timer);
       }, 1000);
     } else {
       this.showCentralAlert(res.data.message || '發送驗證碼失敗');
@@ -220,9 +218,8 @@ export default {
     const data = error.response?.data;
 
     if (data && data.status === 'Failed') {
+      //錯誤訊息，EX:「還有幾分鐘才能重新發送」
       this.showCentralAlert(data.message || '發送驗證碼失敗');
-
-      // 處理欄位錯誤（ModelState 驗證）
       const fieldErrors = data.errors || {};
       this.errors = { ...this.errors, ...fieldErrors };
 
@@ -236,17 +233,14 @@ export default {
   }
 },
     async submitForm() {
-  // 清空之前錯誤
   this.errors = {};
 
-  // 檢查是否同意註冊須知
   if (!this.form.agreed) {
     this.showTermsAfterAlert = true;
     this.showCentralAlert('請先閱讀並同意註冊須知/會員權益');
     return;
   }
 
-  // 前端欄位驗證
   if (!this.validateFields()) return;
 
   try {
@@ -263,17 +257,16 @@ export default {
       }
     });
 
-    if (res.data.status === 'Success') {
+    //  成功註冊 - HTTP 201
+    if (res.status === 201 && res.data.status === 'Success') {
       this.showCentralAlert('註冊成功，可以進行登入！');
-      this.$router.push('/');
+      setTimeout(() => this.$router.push('/'), 5000); 
     } else {
-      // 處理失敗回應（status === 'Failed'）
-      const fieldErrors = res.data.errors || {};
+      // 處理非預期錯誤
+      const fieldErrors = res.data?.errors || {};
       this.errors = { ...this.errors, ...fieldErrors };
 
-      // ✅ 只顯示 phoneOrEmail 的錯誤訊息
-      this.showCentralAlert(fieldErrors.phoneOrEmail || '註冊失敗，請稍後再試');
-
+      this.showCentralAlert(fieldErrors.phoneOrEmail || res.data.message || '註冊失敗，請稍後再試');
       const firstErrorKey = Object.keys(fieldErrors)[0];
       if (this.$refs[firstErrorKey]) {
         this.$refs[firstErrorKey].focus();
@@ -288,9 +281,7 @@ export default {
     if (data && data.status === 'Failed') {
       const fieldErrors = data.errors || {};
       this.errors = { ...this.errors, ...fieldErrors };
-
-      // ✅ 顯示 errors.phoneOrEmail
-      this.showCentralAlert(fieldErrors.phoneOrEmail || '註冊失敗，請稍後再試');
+      this.showCentralAlert(fieldErrors.phoneOrEmail || data.message || '註冊失敗，請稍後再試');
 
       const firstErrorKey = Object.keys(fieldErrors)[0];
       if (this.$refs[firstErrorKey]) {
@@ -299,7 +290,6 @@ export default {
         this.$refs.phone?.focus();
       }
     } else {
-      // 非預期錯誤
       this.showCentralAlert('註冊失敗，請稍後再試');
     }
   }
@@ -486,7 +476,21 @@ export default {
   font-weight: bold;
   border: none;
   border-radius: 20px;
-  background: white;
+  background: #5a67d8;
+  color: #ffffff;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.main-button-cancel {
+  flex: 1; 
+  padding: 14px;
+  font-size: 20px;
+  font-weight: bold;
+  border: none;
+  border-radius: 20px;
+  background: #ff3535;
+  color: #ffffff;
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
   cursor: pointer;
 }

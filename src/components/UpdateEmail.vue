@@ -49,12 +49,16 @@
       </div>
     </section>
   </div>
+
+<AlertModal :visible="modalVisible" :message="modalMessage" @close="modalVisible = false" />
+
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import AlertModal from '@/components/AlertModal.vue'
 
 const router = useRouter()
 const currentEmail = ref(localStorage.getItem('userEmail') || '')
@@ -64,52 +68,70 @@ const form = ref({
   password: ''
 })
 
+// 驗證規則
 const emailPattern = /^[\w.-]+@[\w.-]+\.\w{2,}$/
 const codePattern = /^\d{6}$/
 const passwordPattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/
 
+// Token
 const token = localStorage.getItem('userToken')
 
+// Modal 控制
+const modalVisible = ref(false)
+const modalMessage = ref('')
+
+// 顯示提示彈窗
+function showAlert(msg) {
+  modalMessage.value = msg
+  modalVisible.value = true
+}
+
+/** 發送驗證碼 **/
 async function sendCode() {
   if (!form.value.newEmail) {
-    alert('請輸入新Email')
+    showAlert('請輸入新Email')
     return
   }
   if (!emailPattern.test(form.value.newEmail)) {
-    alert('Email格式錯誤')
+    showAlert('Email格式錯誤')
     return
   }
 
   try {
     const res = await axios.post(
       '/api/MemberManagement/VerifyChangeEmail',
-      { registerandResetPassword_Email: form.value.newEmail },
+      { sentEmail: form.value.newEmail },
       { headers: { Authorization: `Bearer ${token}` } }
     )
-
-    alert(res.data.message)
+    showAlert(res.data.message)
   } catch (err) {
-    alert('驗證碼發送失敗，請稍後再試')
+    const data = err?.response?.data
+    if (data?.errors) {
+      showAlert(data.errors.join('\n'))
+    } else {
+      showAlert(data?.message || '驗證碼發送失敗，請稍後再試')
+    }
   }
 }
 
+/** 確認變更 Email **/
 async function confirm() {
   const { newEmail, code, password } = form.value
 
   if (!newEmail || !code || !password) {
-    alert('請填寫完整資訊')
+    showAlert('請填寫完整資訊')
     return
   }
   if (!emailPattern.test(newEmail)) {
-    alert('Email格式錯誤')
+    showAlert('Email格式錯誤')
     return
   }
   if (!codePattern.test(code)) {
-    alert('驗證碼必須是6位數字')
+    showAlert('驗證碼必須是6位數字')
     return
   }
   if (!passwordPattern.test(password)) {
-    alert('密碼需12-20位且包含大小寫字母及數字，不得有特殊字元或空白')
+    showAlert('密碼需12-20位，包含大小寫字母與數字，不能含特殊字元或空白')
     return
   }
 
@@ -125,25 +147,32 @@ async function confirm() {
     )
 
     if (res.data.status === 'Success') {
-      // ✅ 修改成功時更新 localStorage
       localStorage.setItem('userEmail', newEmail)
+      showAlert(res.data.message)
 
-      // ✅ 顯示確認提示後導頁
-      if (window.confirm(res.data.message)) {
+      // 2秒後自動跳轉
+      setTimeout(() => {
         router.push('/member-management')
-      }
+      }, 2000)
     } else {
-      alert(res.data.message)
+      showAlert(res.data.message || 'Email 修改失敗')
     }
   } catch (err) {
-    alert('Email 修改失敗，請稍後再試')
+    const data = err?.response?.data
+    if (data?.errors) {
+      showAlert(data.errors.join('\n'))
+    } else {
+      showAlert(data?.message || 'Email 修改失敗，請稍後再試')
+    }
   }
 }
 
+/** 取消變更 **/
 function cancel() {
   router.push('/member-management')
 }
 </script>
+
 
 <style scoped>
 .main-container {

@@ -68,7 +68,7 @@
       <!-- 送出按鈕 -->
       <div class="button-group">
         <button type="submit" class="main-button">驗證身分</button>
-        <button type="button" class="main-button" @click="goToLogin">返回登入</button>
+        <button type="button" class="main-button-cancel" @click="goToLogin">返回登入</button>
       </div>
     </form>
     <AlertModal :visible="showModal" :message="modalMessage" @close="showModal = false" />
@@ -137,7 +137,7 @@ const sendCode = async () => {
   try {
     const res = await axios.post(
       '/api/MemberManagement/VerifyForgetAccountCode',
-      { SentEmail: email.value },
+      { sentEmail: email.value },
       {
         headers: {
           Authorization: `Bearer ${guestToken}`
@@ -160,8 +160,12 @@ const sendCode = async () => {
       showAlert(res.data.message || '發送驗證碼失敗')
     }
   } catch (err) {
-    const message = err.response?.data?.message || '發送驗證碼失敗，請稍後再試'
-    showAlert(message)
+    const response = err.response?.data
+    if (response?.errors) {
+      showAlert(response.errors.join('、'))
+    } else {
+      showAlert(response?.message || '發送驗證碼失敗，請稍後再試')
+    }
   }
 }
 
@@ -196,14 +200,20 @@ const submitForm = async () => {
     )
 
     if (res.data.status === 'Success') {
-      showAlert(res.data.message)
-      // router.push('/') 可選擇跳轉登入頁
-    } else {
+  showAlert(res.data.message)
+  setTimeout(() => {
+    router.push('/')
+  }, 2000)
+}else {
       showAlert(res.data.message || '驗證失敗')
     }
   } catch (err) {
-    const message = err.response?.data?.message || '驗證失敗，請稍後再試'
-    showAlert(message)
+    const response = err.response?.data
+    if (response?.errors) {
+      showAlert(response.errors.join('、'))
+    } else {
+      showAlert(response?.message || '驗證失敗，請稍後再試')
+    }
   }
 }
 
@@ -329,6 +339,19 @@ input:focus {
   border: none;
   border-radius: 20px;
   background: #5a67d8;
+  color: #ffffff;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.main-button-cancel {
+  flex: 1;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 20px;
+  background: #ff3535;
   color: #ffffff;
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
   cursor: pointer;

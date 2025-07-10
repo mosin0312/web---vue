@@ -84,7 +84,7 @@
       <!-- 送出按鈕 -->
       <div class="button-group">
         <button type="submit" class="main-button">確認修改密碼</button>
-        <button type="button" class="main-button" @click="goToLogin">返回登入</button>
+        <button type="button" class="main-button-cancel" @click="goToLogin">返回登入</button>
       </div>
     </form>
   </div>
@@ -164,6 +164,7 @@ const validateCode = () => {
   errors.code = pattern.test(code.value) ? '' : '請輸入6位數驗證碼'
 }
 
+
 // 發送驗證碼
 const sendCode = async () => {
   validateAccount()
@@ -185,11 +186,8 @@ const sendCode = async () => {
       { sentEmail: email.value },
       { headers: { Authorization: `Bearer ${guestToken}` } }
     )
+
     modalMessage.value = res.data.message || '驗證碼已發送'
-  } catch (err) {
-    modalMessage.value =
-      err.response?.data?.message || '寄送驗證碼失敗，請稍後再試'
-  } finally {
     showModal.value = true
     isSending.value = true
     countdown.value = 60
@@ -200,10 +198,14 @@ const sendCode = async () => {
         isSending.value = false
       }
     }, 1000)
+  } catch (err) {
+    modalMessage.value =
+      err.response?.data?.message || '寄送驗證碼失敗，請稍後再試'
+    showModal.value = true
   }
 }
 
-// 確認修改密碼
+// 提交表單（含驗證碼檢查與密碼修改）
 const submitForm = async () => {
   validateAccount()
   validatePassword()
@@ -235,7 +237,7 @@ const submitForm = async () => {
       },
       {
         headers: {
-          Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s`
+          Authorization: `Bearer ${guestToken}`
         }
       }
     )
@@ -243,16 +245,21 @@ const submitForm = async () => {
     if (res.data.status === 'Success') {
       modalMessage.value = res.data.message || '密碼已更新，請重新登入'
       showModal.value = true
-      setTimeout(() => {
-        router.push('/')
-      }, 1500)
+      setTimeout(() => router.push('/'), 1500)
     } else {
       modalMessage.value = res.data.message || '驗證或更新密碼失敗'
       showModal.value = true
     }
   } catch (err) {
-    modalMessage.value =
-      err.response?.data?.message || '伺服器錯誤，請稍後再試'
+    const errorResponse = err.response?.data
+
+    if (errorResponse?.errors && Array.isArray(errorResponse.errors)) {
+      modalMessage.value = errorResponse.errors.join('，')
+    } else {
+      modalMessage.value =
+        errorResponse?.message || '伺服器錯誤，請稍後再試'
+    }
+
     showModal.value = true
   }
 }
@@ -365,6 +372,19 @@ input:focus {
   border: none;
   border-radius: 20px;
   background: #5a67d8;
+  color: #ffffff;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.main-button-cancel {
+  flex: 1;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 20px;
+  background: #ff3535;
   color: #ffffff;
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
   cursor: pointer;

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from 'axios'
 import router from '@/router'
 
 const instance = axios.create({
@@ -9,7 +9,21 @@ const instance = axios.create({
   }
 })
 
-// 加入攔截器：處理 JWT 過期或使用者狀態為登出
+//  每次請求都自動加上 token
+instance.interceptors.request.use(config => {
+  const token =
+    localStorage.getItem('userToken') ||
+    localStorage.getItem('guestToken') ||
+    localStorage.getItem('authToken')
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+
+  return config
+}, error => Promise.reject(error))
+
+// 統一處理 token 過期 / 被後端判定為 Logout
 instance.interceptors.response.use(
   response => response,
   error => {
@@ -17,14 +31,12 @@ instance.interceptors.response.use(
     const userStatus = error.response?.data?.userStatus
 
     if (status === 401 || userStatus === 'Logout') {
-      // 清除所有登入資訊
       localStorage.removeItem('userToken')
       localStorage.removeItem('userEmail')
       localStorage.removeItem('nickname')
       localStorage.removeItem('accountName')
-      localStorage.removeItem('userRole') 
+      localStorage.removeItem('userRole')
 
-      // 自動導向登入頁（附上提示參數）
       router.push({ path: '/', query: { loggedOut: 'true' } })
     }
 

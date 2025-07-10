@@ -9,7 +9,10 @@
     <!-- 發送驗證碼 -->
     <div v-if="step === 1" class="form-content">
       <p class="tip-text">系統將發送驗證碼至您的註冊 Email。</p>
-      <button class="main-button" @click="sendVerificationCode">發送驗證碼</button>
+      <div class="button-group">
+      <button class="main-button-code" @click="sendVerificationCode">發送驗證碼</button>
+      <button class="main-button-cancel" @click="goBack">返回會員管理</button>
+      </div>
     </div>
 
     <!-- 輸入驗證碼與密碼 -->
@@ -35,62 +38,75 @@
   </div>
 </template>
 
-<script>
-import axios from 'axios'
+<script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
 
-export default {
-  components: { AlertModal },
-  data() {
-    return {
-      step: 1, // 當前步驟（1=發送驗證碼, 2=輸入驗證碼與密碼）
-      form: {
-        password: '',
-        verificationCode: ''
-      },
-      showAlert: false,
-      alertMessage: ''
-    }
-  },
-  methods: {
-    async sendVerificationCode() {
-      try {
-        const token = localStorage.getItem('userToken')
-        const res = await axios.post('/api/MemberManagement/DeleteAccountVerificationCode', {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        this.alertMessage = res.data.message
-        this.showAlert = true
-        this.step = 2
-      } catch (err) {
-        this.alertMessage = err.response?.data?.message || '發送驗證碼失敗'
-        this.showAlert = true
-      }
-    },
-    async deleteAccount() {
-      try {
-        const token = localStorage.getItem('userToken')
-        const res = await axios.delete('/api/MemberManagement/DeleteAccount', {
-          headers: { Authorization: `Bearer ${token}` },
-          data: this.form
-        })
-        this.alertMessage = res.data.message
-        this.showAlert = true
+const router = useRouter()
 
-        // 成功刪除，清除 token 並跳轉登入
-        if (res.data.status === 'Success') {
-          localStorage.removeItem('token')
-          setTimeout(() => this.$router.replace('/login'), 1500)
-        }
-      } catch (err) {
-        this.alertMessage = err.response?.data?.message || '刪除失敗'
-        this.showAlert = true
+const step = ref(1)
+const showAlert = ref(false)
+const alertMessage = ref('')
+
+// 刪除表單資料
+const form = ref({
+  password: '',
+  verificationCode: ''
+})
+
+// 發送驗證碼
+const sendVerificationCode = async () => {
+  try {
+    const token = localStorage.getItem('userToken')
+    const res = await api.post(
+      '/api/MemberManagement/DeleteAccountVerificationCode',
+      {},
+      {
+        headers: { Authorization: `Bearer ${token}` }
       }
-    },
-    goBack() {
-      this.$router.push('/member-management')
-    }
+    )
+    alertMessage.value = res.data.message
+    showAlert.value = true
+    step.value = 2
+  } catch (err) {
+    alertMessage.value =
+      err.response?.data?.message || '發送驗證碼失敗'
+    showAlert.value = true
   }
+}
+
+// 刪除帳號
+const deleteAccount = async () => {
+  try {
+    const token = localStorage.getItem('userToken')
+    const res = await api.delete('/api/MemberManagement/DeleteAccount', {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        password: form.value.password,
+        verificationCode: form.value.verificationCode
+      }
+    })
+    alertMessage.value = res.data.message
+    showAlert.value = true
+
+    if (res.data.status === 'Success') {
+      localStorage.removeItem('userToken')
+      localStorage.removeItem('userEmail')
+      setTimeout(() => {
+        router.replace('/')
+      }, 1500)
+    }
+  } catch (err) {
+    alertMessage.value =
+      err.response?.data?.message || '刪除帳號失敗'
+    showAlert.value = true
+  }
+}
+
+const goBack = () => {
+  router.push('/member-management')
 }
 </script>
 
@@ -155,7 +171,18 @@ input {
   gap: 10px;
   margin-top: 30px;
 }
-.main-button {
+.main-button-cancel {
+  width: 165px;               
+  height: 60px;
+  padding: 10px 20px;
+  font-size: 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: red;
+  color: #fff;
+}
+.main-button-code {
   width: 165px;               
   height: 60px;
   padding: 10px 20px;
@@ -175,11 +202,21 @@ input {
   font-weight: bold;
   border: none;
   border-radius: 20px;
-  background: #721c24;
+  background: red;
   color: #fff;
   cursor: pointer;
 }
 .main-button.cancel {
-  background-color: #ccc;
+  width: 165px;               
+  height: 60px; 
+  flex: 1;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 20px;
+  background: #5a67d8;
+  color: #fff;
+  cursor: pointer;
 }
 </style>

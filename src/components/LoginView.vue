@@ -210,13 +210,21 @@ async function submitForm() {
     });
 
     if (response.data.status === 'Success') {
-      localStorage.setItem('userToken', response.data.token);
-      localStorage.setItem('userEmail', email.value);
-      localStorage.setItem('accountName', response.data.accountName);
-      localStorage.setItem('userRole', 'User');
+  const token = response.data.token;
 
-      showAlert('登入成功！', true);
-    } else {
+  // 根據是否保持登入決定存在哪
+  if (rememberMe.value) {
+    localStorage.setItem('userToken', token); // 永久保存
+  } else {
+    sessionStorage.setItem('userToken', token); // 關閉瀏覽器失效
+  }
+
+  localStorage.setItem('userEmail', email.value);
+  localStorage.setItem('accountName', response.data.accountName);
+  localStorage.setItem('userRole', 'User');
+
+  showAlert('登入成功！', true);
+}else {
       showAlert(response.data.message || '登入失敗');
     }
   } catch (error) {

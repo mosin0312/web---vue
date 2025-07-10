@@ -19,9 +19,11 @@ instance.interceptors.response.use(
     if (status === 401 || userStatus === 'Logout') {
       // 清除所有登入資訊
       localStorage.removeItem('userToken')
+      sessionStorage.removeItem('userToken')
       localStorage.removeItem('userEmail')
       localStorage.removeItem('nickname')
       localStorage.removeItem('accountName')
+      localStorage.removeItem('userRole') 
 
       // 自動導向登入頁（附上提示參數）
       router.push({ path: '/', query: { loggedOut: 'true' } })

@@ -33,7 +33,7 @@
             <div class="avatar-container">
               <img :src="require('@/assets/icons/avatar.svg')" alt="User" class="avatar" />
               <div class="status-indicator">
-                <img :src="require('@/assets/icons/status-private.svg')" alt="User status" class="status-icon" />
+                <img :src="require('@/assets/icons/property-private.svg')" alt="User status" class="status-icon" />
               </div>
             </div>
             <div class="user-details">
@@ -75,13 +75,13 @@ export default {
   data() {
     return {
       callEntries: [
-        { name: '王小明', phoneNumber: '0912-345-678', priority: '低', priorityLabel: '原因', date: '10/24', time: '10:22', isOutgoing: true, isRed: true },
-        { name: '王小明', phoneNumber: '0912-345-678', priority: '低', priorityLabel: '原因', date: '10/24', time: '10:22', isOutgoing: true, isRed: true },
-        { name: '王小明', phoneNumber: '0912-345-678', priority: '低', priorityLabel: '原因', date: '10/24', time: '10:22', isOutgoing: false, isRed: false },
-        { name: '王小明', phoneNumber: '0912-345-678', priority: '低', priorityLabel: '原因', date: '10/24', time: '10:22', isOutgoing: true, isRed: true },
-        { name: '王小明', phoneNumber: '0912-345-678', priority: '低', priorityLabel: '原因', date: '10/24', time: '10:22', isOutgoing: true, isRed: true },
-        { name: '王小明', phoneNumber: '0912-345-678', priority: '低', priorityLabel: '原因', date: '10/24', time: '10:22', isOutgoing: false, isRed: false },
-        { name: '王小明', phoneNumber: '0912-345-678', priority: '低', priorityLabel: '原因', date: '10/24', time: '10:22', isOutgoing: true, isRed: true }
+        { name: '王小明', phoneNumber: '0912-345-678', priorityLabel: '', date: '10/24', time: '10:22', isOutgoing: true, isRed: true },
+        { name: '王小明', phoneNumber: '0912-345-678', priorityLabel: '有風險', date: '10/24', time: '10:22', isOutgoing: true, isRed: true },
+        { name: '王小明', phoneNumber: '0912-345-678' , date: '10/24', time: '10:22', isOutgoing: false, isRed: false },
+        { name: '王小明', phoneNumber: '0912-345-678', priorityLabel: '有風險', date: '10/24', time: '10:22', isOutgoing: true, isRed: true },
+        { name: '王小明', phoneNumber: '0912-345-678',  date: '10/24', time: '10:22', isOutgoing: true, isRed: true },
+        { name: '王小明', phoneNumber: '0912-345-678', priority: '有風險', priorityLabel: '原因', date: '10/24', time: '10:22', isOutgoing: false, isRed: false },
+        { name: '王小明', phoneNumber: '0912-345-678', priorityLabel: '原因', date: '10/24', time: '10:22', isOutgoing: true, isRed: true }
       ]
     };
   },
@@ -96,12 +96,12 @@ export default {
     },
     getDirectionIcon(isOutgoing) {
       return isOutgoing
-        ? require('@/assets/icons/call-end.svg') // 換成結束通話當箭頭圖
+        ? require('@/assets/icons/arrow-outgoing.svg') // 換成結束通話當箭頭圖
         : require('@/assets/icons/arrow-incoming.svg');
     },
     getCallIcon(isRed) {
       return isRed
-        ? require('@/assets/icons/arrow-outgoing.svg') // 換成紅箭頭當通話圖
+        ? require('@/assets/icons/call-end.svg') // 換成紅箭頭當通話圖
         : require('@/assets/icons/call-received.svg');
     },
     onFocus(event) {
@@ -120,18 +120,21 @@ export default {
 @import url('https://fonts.googleapis.com/css2?family=Irohamaru:wght@400;500&display=swap');
 
 .call-history-page {
-  width: 360px;
-  min-height: 800px;
+width: 100%;
+  height: 100vh;
+  max-width: 100%;
+  font-family: 'Inter', sans-serif;
   background: linear-gradient(180deg, #ffebc3 0%, #fff 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  font-family: "Irohamaru", sans-serif;
+  padding: 0 16px;
+  box-sizing: border-box;
+  position: relative; 
 }
 
 .call-header {
-  width: 360px;
+  width: 100%;
   height: 40px;
   padding: 2px 17px;
   display: flex;
@@ -154,7 +157,7 @@ export default {
 
 /* Search Section */
 .search-container {
-  width: 92%;
+  width: 100%;
   padding: 10px;
   border-radius: 40px;
   display: flex;
@@ -162,6 +165,7 @@ export default {
   background-color: #fff;
   margin-top: 10px;
   position: relative;
+  margin-bottom: 20px;
 }
 
 .search-icon {
@@ -185,7 +189,7 @@ export default {
 
 /* Call List Section */
 .call-list {
-  width: 360px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 5px;

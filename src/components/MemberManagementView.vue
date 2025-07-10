@@ -33,7 +33,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue' 
 
 const router = useRouter()
@@ -88,7 +88,7 @@ const fetchProfile = async () => {
   if (isGuest.value) return
 
   try {
-    const { data } = await axios.get('/api/MemberManagement/profile', {
+    const { data } = await api.get('/api/MemberManagement/profile', {
       headers: { Authorization: `Bearer ${token}` }
     })
 
@@ -138,7 +138,7 @@ const handleModalCancel = () => {
 const doLogout = async () => {
   try {
     const token = localStorage.getItem('userToken')
-    const { data } = await axios.post('/api/MemberManagement/Logout', {}, {
+    const { data } = await api.post('/api/MemberManagement/Logout', {}, {
       headers: { Authorization: `Bearer ${token}` }
     })
 

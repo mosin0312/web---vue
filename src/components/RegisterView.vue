@@ -81,7 +81,7 @@
 </template>
 
 <script> 
-import axios from 'axios';
+import api from '@/api';
 import AlertModal from '@/components/AlertModal.vue';
 import TermsModal from '@/components/TermsModal.vue';
 
@@ -195,7 +195,7 @@ export default {
   if (this.errors.email) return;
 
   try {
-    const res = await axios.post('/api/MemberManagement/RegisterVerificationCode', {
+    const res = await api.post('/api/MemberManagement/RegisterVerificationCode', {
       SentEmail: this.form.email
     }, {
       headers: {
@@ -244,7 +244,7 @@ export default {
   if (!this.validateFields()) return;
 
   try {
-    const res = await axios.post('/api/MemberManagement/Register', {
+    const res  = await api.post('/api/MemberManagement/Register', {
       register_PhoneNumber: this.form.phone,
       register_Nickname: this.form.nickname,
       register_AccountName: this.form.username,

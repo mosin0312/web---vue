@@ -57,7 +57,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
 
 const router = useRouter()
@@ -98,7 +98,7 @@ async function sendCode() {
   }
 
   try {
-    const res = await axios.post(
+    const res = await api.post(
       '/api/MemberManagement/VerifyChangeEmail',
       { sentEmail: form.value.newEmail },
       { headers: { Authorization: `Bearer ${token}` } }
@@ -136,7 +136,7 @@ async function confirm() {
   }
 
   try {
-    const res = await axios.post(
+    const res = await api.post(
       '/api/MemberManagement/ChangeEmail',
       {
         newEmail,

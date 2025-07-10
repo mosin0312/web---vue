@@ -38,7 +38,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
 
 const nickname = ref('')
@@ -77,7 +77,7 @@ const submitForm = async () => {
 
   try {
     const token = localStorage.getItem('userToken')
-    const response = await axios.put(
+    const response = await api.put(
       '/api/MemberManagement/update-nickname',
       { newNickname: nickname.value },
       {

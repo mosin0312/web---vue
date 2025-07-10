@@ -55,7 +55,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
 
 const email = ref('')
@@ -128,7 +128,7 @@ const submitForm = async () => {
 
   try {
     const token = localStorage.getItem('userToken')
-    const response = await axios.post('/api/MemberManagement/ChangePassword', {
+    const response = await api.post('/api/MemberManagement/ChangePassword', {
       ChangePassword_Email: email.value,
       ChangePassword_VerificationCode: verificationCode.value,
       CurrentPassword: currentPassword.value,
@@ -160,7 +160,7 @@ const sendVerificationCode = async () => {
 
   try {
     const token = localStorage.getItem('userToken')
-    const response = await axios.post('/api/MemberManagement/VerifyChangePasswordCode', {
+    const response = await api.post('/api/MemberManagement/VerifyChangePasswordCode', {
       sentEmail: email.value
     }, {
       headers: {

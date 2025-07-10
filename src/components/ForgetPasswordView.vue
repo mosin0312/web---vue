@@ -93,7 +93,7 @@
 
 <script setup>
 import AlertModal from '@/components/AlertModal.vue'
-import axios from 'axios'
+import api from '@/api' 
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -181,7 +181,7 @@ const sendCode = async () => {
   }
 
   try {
-    const res = await axios.post(
+    const res = await api.post(
       '/api/MemberManagement/VerifyResetPasswordCode',
       { sentEmail: email.value },
       { headers: { Authorization: `Bearer ${guestToken}` } }
@@ -227,7 +227,7 @@ const submitForm = async () => {
   }
 
   try {
-    const res = await axios.post(
+    const res = await api.post(
       '/api/MemberManagement/ResetPassword',
       {
         resetPassword_AccountName: account.value,

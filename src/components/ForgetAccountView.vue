@@ -78,7 +78,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
 
 // 訪客 Token
@@ -135,7 +135,7 @@ const sendCode = async () => {
   }
 
   try {
-    const res = await axios.post(
+    const res = await api.post(
       '/api/MemberManagement/VerifyForgetAccountCode',
       { sentEmail: email.value },
       {
@@ -185,7 +185,7 @@ const submitForm = async () => {
   }
 
   try {
-    const res = await axios.post(
+    const res = await api.post(
       '/api/MemberManagement/ForgetAccount',
       {
         forgetAccount_PhoneNumber: phone.value,

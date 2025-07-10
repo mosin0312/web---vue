@@ -84,7 +84,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import axios from 'axios'
+import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
 
 import { useRouter } from 'vue-router'
@@ -185,7 +185,7 @@ const newsList = ref([])
 const fetchNews = async () => {
   try {
     const token = localStorage.getItem('userToken')
-    const response = await axios.get('/api/MemberManagement/news', {
+    const response = await api.get('/api/MemberManagement/news', {
       headers: {
         Authorization: `Bearer ${token}`
       }

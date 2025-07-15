@@ -9,7 +9,7 @@
 
     <form @submit.prevent="submitForm" class="form-content">
       <div class="form-group">
-        <input v-model="form.phone" ref="phone" placeholder="請輸入手機號碼，例:0912345678" @blur="validatePhone" />
+        <input v-model="form.phone" ref="phone" placeholder="請輸入手機號碼，例:0912345678" maxlength="10" @blur="validatePhone" />
         <small :class="errors.phone ? 'error-text' : 'hint-text'">
           {{ errors.phone || '09 開頭的 10 碼手機號碼，例:0912345678' }}
         </small>
@@ -23,21 +23,21 @@
       </div>
 
       <div class="form-group">
-        <input v-model="form.username" ref="username" type="text" placeholder="請輸入帳號名稱" @blur="validateUsername" />
+        <input v-model="form.username" ref="username" type="text" placeholder="請輸入帳號名稱" maxlength="20" @blur="validateUsername" />
         <small :class="errors.username ? 'error-text' : 'hint-text'">
           {{ errors.username || '帳號需 12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
       </div>
 
       <div class="form-group">
-        <input v-model="form.password" ref="password" type="password" placeholder="請輸入密碼" @blur="validatePassword" />
+        <input v-model="form.password" ref="password" type="password" placeholder="請輸入密碼" maxlength="20" @blur="validatePassword" />
         <small :class="errors.password ? 'error-text' : 'hint-text'">
           {{ errors.password || '密碼需 12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
       </div>
 
       <div class="form-group">
-        <input v-model="form.copassword" ref="copassword" type="password" placeholder="請確認密碼" @blur="validateCoPassword" />
+        <input v-model="form.copassword" ref="copassword" type="password" placeholder="請確認密碼" maxlength="20" @blur="validateCoPassword" />
         <small :class="errors.copassword ? 'error-text' : 'hint-text'">
           {{ errors.copassword || '密碼需與上述相符' }}
         </small>
@@ -80,12 +80,10 @@
   </div>
 </template>
 
-<script> 
+<script>
 import api from '@/api';
 import AlertModal from '@/components/AlertModal.vue';
 import TermsModal from '@/components/TermsModal.vue';
-
-const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s';
 
 export default {
   components: {
@@ -94,6 +92,7 @@ export default {
   },
   data() {
     return {
+      token: '', // 動態取得的 guest token
       form: {
         phone: '',
         nickname: '',
@@ -113,9 +112,24 @@ export default {
       pendingSubmit: false,
       showTermsAfterAlert: false,
     };
-    
+  },
+  created() {
+    this.getGuestToken();
   },
   methods: {
+    async getGuestToken() {
+      try {
+        const res = await api.get('/api/MemberManagement/guest-token');
+        if (res.data.status === 'Success') {
+          this.token = res.data.token;
+          localStorage.setItem('guestToken', this.token);
+        } else {
+          this.showCentralAlert('無法取得訪客憑證，請稍後再試');
+        }
+      } catch {
+        this.showCentralAlert('訪客身份取得失敗');
+      }
+    },
     validatePhone() {
       if (!/^09\d{8}$/.test(this.form.phone))
         this.errors.phone = '手機格式錯誤，格式為09 開頭的 10 碼手機號碼，例:0912345678';
@@ -139,23 +153,17 @@ export default {
       else this.errors.password = '';
     },
     validateCoPassword() {
-      if (this.form.copassword !== this.form.password) {
-        this.errors.copassword = '密碼不一致，請再次確認';
-      } else {
-        this.errors.copassword = '';
-      }
+      this.errors.copassword = this.form.copassword !== this.form.password
+        ? '密碼不一致，請再次確認'
+        : '';
     },
     validateEmail() {
       const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!pattern.test(this.form.email))
-        this.errors.email = '請輸入有效 Email 格式';
-      else this.errors.email = '';
+      this.errors.email = pattern.test(this.form.email) ? '' : '請輸入有效 Email 格式';
     },
     validateCode() {
       const pattern = /^\d{6}$/;
-      if (!pattern.test(this.form.code))
-        this.errors.code = '驗證碼需為 6 位數字';
-      else this.errors.code = '';
+      this.errors.code = pattern.test(this.form.code) ? '' : '驗證碼需為 6 位數字';
     },
     validateFields() {
       this.validatePhone();
@@ -165,7 +173,6 @@ export default {
       this.validateCoPassword();
       this.validateEmail();
       this.validateCode();
-      this.errors = {}; // 清空所有欄位錯誤
 
       const firstError = Object.entries(this.errors).find(([, v]) => v);
       if (firstError && this.$refs[firstError[0]]) this.$refs[firstError[0]].focus();
@@ -175,6 +182,13 @@ export default {
       this.alertMessage = message;
       this.showAlert = true;
     },
+    handleAlertClose() {
+      this.showAlert = false;
+      if (this.showTermsAfterAlert) {
+        this.showTermsAfterAlert = false;
+        this.showTerms = true;
+      }
+    },
     handleTermsClick() {
       this.showTerms = true;
     },
@@ -183,117 +197,105 @@ export default {
       this.showTerms = false;
       this.validateFields();
     },
-    handleAlertClose() {
-  this.showAlert = false;
-  if (this.showTermsAfterAlert) {
-    this.showTermsAfterAlert = false;
-    this.showTerms = true;
-  }
-},
     async sendVerificationCode() {
-  this.validateEmail();
-  if (this.errors.email) return;
+      this.validateEmail();
+      if (this.errors.email) return;
 
-  try {
-    const res = await api.post('/api/MemberManagement/RegisterVerificationCode', {
-      SentEmail: this.form.email
-    }, {
-      headers: {
-        Authorization: `Bearer ${TOKEN}`
+      try {
+        const res = await api.post(
+          '/api/MemberManagement/RegisterVerificationCode',
+          { SentEmail: this.form.email },
+          {
+            headers: {
+              Authorization: `Bearer ${this.token}`
+            }
+          }
+        );
+
+        if (res.data.status === 'Success') {
+          this.showCentralAlert('驗證碼已發送至 Email');
+          this.countdown = 60;
+          this.timer = setInterval(() => {
+            this.countdown--;
+            if (this.countdown <= 0) clearInterval(this.timer);
+          }, 1000);
+        } else {
+          this.showCentralAlert(res.data.message || '發送驗證碼失敗');
+        }
+      } catch (error) {
+        const data = error.response?.data;
+        if (data?.status === 'Failed') {
+          this.showCentralAlert(data.message || '發送驗證碼失敗');
+          this.errors = { ...this.errors, ...(data.errors || {}) };
+          const firstErrorKey = Object.keys(data.errors || {})[0];
+          this.$refs[firstErrorKey]?.focus();
+        } else {
+          this.showCentralAlert('伺服器錯誤，請稍後再試');
+        }
       }
-    });
-
-    if (res.data.status === 'Success') {
-      this.showCentralAlert('驗證碼已發送至 Email');
-      this.countdown = 60;
-      this.timer = setInterval(() => {
-        this.countdown--;
-        if (this.countdown <= 0) clearInterval(this.timer);
-      }, 1000);
-    } else {
-      this.showCentralAlert(res.data.message || '發送驗證碼失敗');
-    }
-  } catch (error) {
-    console.error(error);
-    const data = error.response?.data;
-
-    if (data && data.status === 'Failed') {
-      //錯誤訊息，EX:「還有幾分鐘才能重新發送」
-      this.showCentralAlert(data.message || '發送驗證碼失敗');
-      const fieldErrors = data.errors || {};
-      this.errors = { ...this.errors, ...fieldErrors };
-
-      const firstErrorKey = Object.keys(fieldErrors)[0];
-      if (this.$refs[firstErrorKey]) {
-        this.$refs[firstErrorKey].focus();
-      }
-    } else {
-      this.showCentralAlert('伺服器錯誤，請稍後再試');
-    }
-  }
-},
+    },
     async submitForm() {
-  this.errors = {};
+      this.errors = {};
 
-  if (!this.form.agreed) {
-    this.showTermsAfterAlert = true;
-    this.showCentralAlert('請先閱讀並同意註冊須知/會員權益');
-    return;
-  }
-
-  if (!this.validateFields()) return;
-
-  try {
-    const res  = await api.post('/api/MemberManagement/Register', {
-      register_PhoneNumber: this.form.phone,
-      register_Nickname: this.form.nickname,
-      register_AccountName: this.form.username,
-      register_Password: this.form.password,
-      register_VerificationCode: this.form.code,
-      register_Email: this.form.email
-    }, {
-      headers: {
-        Authorization: `Bearer ${TOKEN}`
+      if (!this.form.agreed) {
+        this.showTermsAfterAlert = true;
+        this.showCentralAlert('請先閱讀並同意註冊須知/會員權益');
+        return;
       }
-    });
 
-    //  成功註冊 - HTTP 201
-    if (res.status === 201 && res.data.status === 'Success') {
-      this.showCentralAlert('註冊成功，可以進行登入！');
-      setTimeout(() => this.$router.push('/'), 5000); 
-    } else {
-      // 處理非預期錯誤
-      const fieldErrors = res.data?.errors || {};
-      this.errors = { ...this.errors, ...fieldErrors };
+      if (!this.validateFields()) return;
 
-      this.showCentralAlert(fieldErrors.phoneOrEmail || res.data.message || '註冊失敗，請稍後再試');
-      const firstErrorKey = Object.keys(fieldErrors)[0];
-      if (this.$refs[firstErrorKey]) {
-        this.$refs[firstErrorKey].focus();
-      } else if (firstErrorKey === 'phoneOrEmail') {
-        this.$refs.phone?.focus();
+      try {
+        const res = await api.post(
+          '/api/MemberManagement/Register',
+          {
+            register_PhoneNumber: this.form.phone,
+            register_Nickname: this.form.nickname,
+            register_AccountName: this.form.username,
+            register_Password: this.form.password,
+            register_VerificationCode: this.form.code,
+            register_Email: this.form.email
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${this.token}`
+            }
+          }
+        );
+
+        if (res.status === 201 && res.data.status === 'Success') {
+          this.showCentralAlert('註冊成功，可以進行登入！');
+          setTimeout(() => this.$router.push('/'), 5000);
+        } else {
+          const fieldErrors = res.data?.errors || {};
+          this.errors = { ...this.errors, ...fieldErrors };
+
+          this.showCentralAlert(fieldErrors.phoneOrEmail || res.data.message || '註冊失敗，請稍後再試');
+          const firstErrorKey = Object.keys(fieldErrors)[0];
+          if (this.$refs[firstErrorKey]) {
+            this.$refs[firstErrorKey].focus();
+          } else if (firstErrorKey === 'phoneOrEmail') {
+            this.$refs.phone?.focus();
+          }
+        }
+      } catch (error) {
+        const data = error.response?.data;
+        if (data?.status === 'Failed') {
+          const fieldErrors = data.errors || {};
+          this.errors = { ...this.errors, ...fieldErrors };
+          this.showCentralAlert(fieldErrors.phoneOrEmail || data.message || '註冊失敗，請稍後再試');
+
+          const firstErrorKey = Object.keys(fieldErrors)[0];
+          if (this.$refs[firstErrorKey]) {
+            this.$refs[firstErrorKey].focus();
+          } else if (firstErrorKey === 'phoneOrEmail') {
+            this.$refs.phone?.focus();
+          }
+        } else {
+          this.showCentralAlert('註冊失敗，請稍後再試');
+        }
       }
-    }
-  } catch (error) {
-    console.error(error);
-    const data = error.response?.data;
-
-    if (data && data.status === 'Failed') {
-      const fieldErrors = data.errors || {};
-      this.errors = { ...this.errors, ...fieldErrors };
-      this.showCentralAlert(fieldErrors.phoneOrEmail || data.message || '註冊失敗，請稍後再試');
-
-      const firstErrorKey = Object.keys(fieldErrors)[0];
-      if (this.$refs[firstErrorKey]) {
-        this.$refs[firstErrorKey].focus();
-      } else if (firstErrorKey === 'phoneOrEmail') {
-        this.$refs.phone?.focus();
-      }
-    } else {
-      this.showCentralAlert('註冊失敗，請稍後再試');
-    }
-  }
-},
+    },
     goLogin() {
       this.$router.push('/');
     }

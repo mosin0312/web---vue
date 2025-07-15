@@ -1,6 +1,8 @@
 <template> 
-  <div v-if="visible" class="modal-overlay">
+  <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
     <div class="modal-box">
+      <!-- 右上角關閉 X -->
+      <button class="close-button" @click="$emit('close')">×</button>
       <p>{{ message }}</p>
       <button class="confirm-btn" @click="handleConfirm">確定</button>
     </div>
@@ -15,12 +17,12 @@ export default {
   },
   methods: {
     handleConfirm() {
-      this.$emit('confirm')
-      this.$emit('close')
+      this.$emit('confirm') 
     }
   }
 }
 </script>
+
 
 <style scoped>
 .modal-overlay {
@@ -55,6 +57,28 @@ export default {
   color: white;
   border: none;
   border-radius: 8px;
+  cursor: pointer;
+}
+
+.modal-box {
+  background: #fff;
+  padding: 20px 30px;
+  border-radius: 12px;
+  text-align: center;
+  min-width: 220px;
+  max-width: 80%;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.close-button {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #999;
   cursor: pointer;
 }
 </style>

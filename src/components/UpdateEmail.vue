@@ -11,7 +11,7 @@
     <!-- 現在設定的Email -->
     <section class="form-content">
       <div class="form-group">
-        <input type="text" :value="currentEmail" readonly />
+        <input v-model="currentEmail" type="text" disabled />
         <small>目前設定的Email</small>
       </div>
 
@@ -55,13 +55,18 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted,ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
 
+const currentEmail = ref('')
+
+onMounted(() => {
+  currentEmail.value = localStorage.getItem('userEmail') || ''
+})
+
 const router = useRouter()
-const currentEmail = ref(localStorage.getItem('userEmail') || '')
 const form = ref({
   newEmail: '',
   code: '',

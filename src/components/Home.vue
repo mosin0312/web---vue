@@ -92,14 +92,13 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
-
 import { useRouter } from 'vue-router'
 import { isUserLoggedIn } from '@/router/useAuth.js'
 
 const router = useRouter()
 const showLoginModal = ref(false)
 
-//  模擬點擊會員功能
+// 會員功能導向檢查
 const goToMember = () => {
   if (!isUserLoggedIn()) {
     showLoginModal.value = true
@@ -116,22 +115,16 @@ const goToPC = () => {
   router.push('/phonecard')
 }
 
-//  輪播圖資料
+// 輪播圖資料
 const carouselImages = [
-  {url: new URL("@/assets/icons/fzpic1.svg",import.meta.url).href,
-  title: '守護你我，識破詐騙',},
-
-  {url: new URL("@/assets/icons/fzpic2.svg",import.meta.url).href,
-  title: '165 一鍵撥號，快速報警',},
-
-  {url: new URL("@/assets/icons/fzpic3.svg",import.meta.url).href,
-  title: '全民反詐，立即行動',},
+  { url: new URL("@/assets/icons/fzpic1.svg", import.meta.url).href, title: '守護你我，識破詐騙' },
+  { url: new URL("@/assets/icons/fzpic2.svg", import.meta.url).href, title: '165 一鍵撥號，快速報警' },
+  { url: new URL("@/assets/icons/fzpic3.svg", import.meta.url).href, title: '全民反詐，立即行動' }
 ]
 
 const currentIndex = ref(0)
 let intervalId = null
 
-//  上一張 / 下一張圖
 const prevImage = () => {
   currentIndex.value = (currentIndex.value - 1 + carouselImages.length) % carouselImages.length
 }
@@ -139,7 +132,7 @@ const nextImage = () => {
   currentIndex.value = (currentIndex.value + 1) % carouselImages.length
 }
 
-//  自動輪播控制
+// 自動輪播
 const startAutoPlay = () => {
   intervalId = setInterval(() => {
     nextImage()
@@ -149,7 +142,7 @@ const stopAutoPlay = () => {
   if (intervalId) clearInterval(intervalId)
 }
 
-//  滑動手勢控制（touch / mouse）
+// 滑動控制
 let startX = 0
 let isDragging = false
 
@@ -157,7 +150,6 @@ const handleTouchStart = (e) => {
   stopAutoPlay()
   startX = e.changedTouches[0].clientX
 }
-
 const handleTouchEnd = (e) => {
   const endX = e.changedTouches[0].clientX
   const deltaX = endX - startX
@@ -171,7 +163,6 @@ const handleMouseDown = (e) => {
   isDragging = true
   startX = e.clientX
 }
-
 const handleMouseUp = (e) => {
   if (!isDragging) return
   const endX = e.clientX
@@ -182,30 +173,31 @@ const handleMouseUp = (e) => {
   startAutoPlay()
 }
 
-//  掛載與卸載處理
-onMounted(() => {
-  startAutoPlay()
-  window.addEventListener('mouseup', handleMouseUp)
-  fetchNews() // 呼叫 API 取得新聞資料
-})
-onUnmounted(() => {
-  stopAutoPlay()
-  window.removeEventListener('mouseup', handleMouseUp)
-})
-
-//  新聞 API 資料處理
+// 新聞
 const newsList = ref([])
 
 const fetchNews = async () => {
   try {
-    const token = localStorage.getItem('userToken') 
-    const response = await api.get('/api/MemberManagement/news', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+    const role = localStorage.getItem('userRole')
+    const token = role === 'User'
+      ? localStorage.getItem('userToken')
+      : localStorage.getItem('guestToken')
+
+    if (!token || !role) {
+      console.warn('無效身份或 token，略過新聞請求')
+      return
+    }
+
+    const url =
+      role === 'User'
+        ? '/api/MemberManagement/news'
+        : '/api/MemberManagement/grabnews'  // ✅ 訪客改用 grabnews
+
+    const response = await api.get(url, {
+      headers: { Authorization: `Bearer ${token}` }
     })
 
-    if (response.data && response.data.news) {
+    if (response.data?.news) {
       newsList.value = response.data.news.sort(
         (a, b) => new Date(b.pubDate) - new Date(a.pubDate)
       )
@@ -215,17 +207,50 @@ const fetchNews = async () => {
   }
 }
 
-//  點擊新聞項目開啟連結
+
+
 const goToNews = (item) => {
   window.open(item.link, '_blank')
 }
 
-// 可選：跳轉到全部新聞頁
 const goToAllNews = () => {
-  // router.push('/news') 若有使用 Vue Router
+  // router.push('/news')
 }
-</script>
 
+// 可選：強化登入驗證（訪客 or 使用者）
+const ensureValidSession = () => {
+  const role = localStorage.getItem('userRole')
+  const token = localStorage.getItem('userToken')
+  const guestToken = localStorage.getItem('guestToken')
+
+  const hasValidToken =
+    (role === 'User' && !!token) ||
+    (role === 'Guest' && !!guestToken)
+
+  if (!hasValidToken) {
+    router.push('/')
+  }
+}
+
+
+// 掛載與清理
+onMounted(() => {
+  ensureValidSession()
+  startAutoPlay()
+  window.addEventListener('mouseup', handleMouseUp)
+  fetchNews()
+
+  //  清除登出 query 參數避免誤判
+  if (router.currentRoute.value.query.loggedOut) {
+    router.replace({ query: {} })
+  }
+})
+
+onUnmounted(() => {
+  stopAutoPlay()
+  window.removeEventListener('mouseup', handleMouseUp)
+})
+</script>
 
 <style scoped>
 .main-container {

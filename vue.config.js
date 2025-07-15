@@ -12,7 +12,7 @@ module.exports = {
         changeOrigin: true,
       },
       '^/api': {
-        target: 'https://localhost:44302',
+        target: 'https://localhost:7050',
         changeOrigin: true,
         secure: false, // 因為是自簽 HTTPS
     },

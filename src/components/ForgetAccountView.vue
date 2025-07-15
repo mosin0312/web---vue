@@ -76,14 +76,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
-
-// 訪客 Token
-const guestToken =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s'
 
 const router = useRouter()
 const phone = ref('')
@@ -94,6 +90,28 @@ const modalMessage = ref('')
 const isSending = ref(false)
 const countdown = ref(60)
 let timer = null
+
+//  動態 guest token
+const token = ref('')
+
+// 取得 guest token
+const getGuestToken = async () => {
+  try {
+    const res = await api.get('/api/MemberManagement/guest-token')
+    if (res.data.status === 'Success') {
+      token.value = res.data.token
+      localStorage.setItem('guestToken', token.value)
+    } else {
+      showAlert('無法取得訪客憑證，請稍後再試')
+    }
+  } catch {
+    showAlert('取得訪客身份失敗')
+  }
+}
+
+onMounted(() => {
+  getGuestToken()
+})
 
 const errors = ref({
   phone: '',
@@ -140,7 +158,7 @@ const sendCode = async () => {
       { sentEmail: email.value },
       {
         headers: {
-          Authorization: `Bearer ${guestToken}`
+          Authorization: `Bearer ${token.value}`
         }
       }
     )
@@ -194,17 +212,17 @@ const submitForm = async () => {
       },
       {
         headers: {
-          Authorization: `Bearer ${guestToken}`
+          Authorization: `Bearer ${token.value}`
         }
       }
     )
 
     if (res.data.status === 'Success') {
-  showAlert(res.data.message)
-  setTimeout(() => {
-    router.push('/')
-  }, 2000)
-}else {
+      showAlert(res.data.message)
+      setTimeout(() => {
+        router.push('/')
+      }, 2000)
+    } else {
       showAlert(res.data.message || '驗證失敗')
     }
   } catch (err) {
@@ -221,6 +239,7 @@ const goToLogin = () => {
   router.push('/')
 }
 </script>
+
 
 <style scoped>
 .main-container {

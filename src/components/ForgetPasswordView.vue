@@ -21,7 +21,7 @@
         <input
           v-model="account" ref="accountRef" type="text" placeholder="請輸入帳號名稱"  maxlength="20" @blur="validateAccount" />
         <small :class="errors.account ? 'error-text' : 'hint-text'">
-          {{ errors.account || '帳號格式錯誤12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
+          {{ errors.account || '帳號格式12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
       </div>
 
@@ -29,12 +29,12 @@
       <div class="form-group">
         <input v-model="password"  ref="passwordRef"  type="password"  placeholder="請輸入密碼"  maxlength="20"  @blur="validatePassword"/>
         <small :class="errors.password ? 'error-text' : 'hint-text'">
-          {{ errors.password || '密碼格式錯誤12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
+          {{ errors.password || '密碼格式12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
       </div>
 
       <div class="form-group">
-        <input  v-model="copassword"  ref="copasswordRef"  type="password"  placeholder="請再次輸入密碼"  @blur="validateCoPassword"/>
+        <input  v-model="copassword"  ref="copasswordRef"  type="password"  placeholder="請再次輸入密碼" maxlength="20" @blur="validateCoPassword"/>
         <small :class="errors.copassword ? 'error-text' : 'hint-text'">
           {{ errors.copassword || '密碼需與上述相符' }}
         </small>
@@ -94,32 +94,52 @@
 <script setup>
 import AlertModal from '@/components/AlertModal.vue'
 import api from '@/api' 
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const showModal = ref(false)
 const modalMessage = ref('')
 
-// 固定訪客 Token
-const guestToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s'
+// ✅ 用來儲存動態取得的 guest token
+const token = ref('')
 
+// ✅ 請求 guest token 的函式
+const getGuestToken = async () => {
+  try {
+    const res = await api.get('/api/MemberManagement/guest-token')
+    if (res.data.status === 'Success') {
+      token.value = res.data.token
+      localStorage.setItem('guestToken', token.value)
+    } else {
+      modalMessage.value = '無法取得訪客身份，請稍後再試'
+      showModal.value = true
+    }
+  } catch {
+    modalMessage.value = '訪客憑證取得失敗，請稍後再試'
+    showModal.value = true
+  }
+}
+
+// 執行頁面初始動作
+onMounted(() => {
+  getGuestToken()
+})
+
+// 導回登入頁
 const goToLogin = () => router.push('/')
 
-// 欄位資料
+// 欄位資料與對應 ref
 const account = ref('')
 const password = ref('')
 const copassword = ref('')
 const email = ref('')
 const code = ref('')
-
-// ref 對應欄位
 const accountRef = ref(null)
 const passwordRef = ref(null)
 const copasswordRef = ref(null)
 const emailRef = ref(null)
 const codeRef = ref(null)
-
 
 const errors = reactive({
   account: '',
@@ -134,7 +154,7 @@ const isSending = ref(false)
 const countdown = ref(60)
 let timer = null
 
-// 驗證欄位格式
+// 欄位格式驗證
 const validateAccount = () => {
   const pattern = /^[A-Za-z0-9]{12,20}$/
   errors.account = pattern.test(account.value)
@@ -164,7 +184,6 @@ const validateCode = () => {
   errors.code = pattern.test(code.value) ? '' : '請輸入6位數驗證碼'
 }
 
-
 // 發送驗證碼
 const sendCode = async () => {
   validateAccount()
@@ -184,7 +203,7 @@ const sendCode = async () => {
     const res = await api.post(
       '/api/MemberManagement/VerifyResetPasswordCode',
       { sentEmail: email.value },
-      { headers: { Authorization: `Bearer ${guestToken}` } }
+      { headers: { Authorization: `Bearer ${token.value}` } }
     )
 
     modalMessage.value = res.data.message || '驗證碼已發送'
@@ -205,7 +224,7 @@ const sendCode = async () => {
   }
 }
 
-// 提交表單（含驗證碼檢查與密碼修改）
+// 提交表單（含驗證碼與密碼變更）
 const submitForm = async () => {
   validateAccount()
   validatePassword()
@@ -237,7 +256,7 @@ const submitForm = async () => {
       },
       {
         headers: {
-          Authorization: `Bearer ${guestToken}`
+          Authorization: `Bearer ${token.value}`
         }
       }
     )
@@ -252,21 +271,16 @@ const submitForm = async () => {
     }
   } catch (err) {
     const errorResponse = err.response?.data
-
     if (errorResponse?.errors && Array.isArray(errorResponse.errors)) {
       modalMessage.value = errorResponse.errors.join('，')
     } else {
       modalMessage.value =
         errorResponse?.message || '伺服器錯誤，請稍後再試'
     }
-
     showModal.value = true
   }
 }
 </script>
-
-
-
 
 
 <style scoped>

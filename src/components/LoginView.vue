@@ -11,15 +11,15 @@
         <div class="form-group">
           <input v-model="username" ref="usernameRef" type="text" placeholder="請輸入帳號名稱" maxlength="20" @blur="validateUsername"/>
           <small :class="errors.username ? 'error-text' : 'hint-text'">
-            {{ errors.username || '12-20 位英數大小寫，不含特殊符號' }}
+            {{ errors.username || '帳號格式12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
           </small>
         </div>
 
         
         <div class="form-group">
-          <input v-model="password" ref="passwordRef" type="password" placeholder="請輸入密碼" @blur="validatePassword" />
+          <input v-model="password" ref="passwordRef" type="password" placeholder="請輸入密碼" maxlength="20" @blur="validatePassword" />
           <small :class="errors.password ? 'error-text' : 'hint-text'">
-            {{ errors.password || '12-20 位英數大小寫，不含特殊符號' }}
+            {{ errors.password || '密碼格式12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
           </small>
         </div>
   
@@ -46,13 +46,6 @@
           <button type="submit" class="main-button">登入</button>
           <button type="button" class="main-button" @click="goToRegister">註冊新帳號</button>
         </div>
-  
-        <div class="keep-logged-in">
-        <label class="keep-logged-in"> 
-        <input type="checkbox" :checked="rememberMe" @click="rememberMe = !rememberMe" />
-          <span>保持登入狀態</span>
-          </label>
-        </div>
         
         <div class="links">
           <router-link to="/forget-password">忘記密碼?</router-link>
@@ -62,46 +55,42 @@
 
       </form>
       <AlertModal :visible="showModal" :message="modalMessage" @confirm="handleModalClose" @close="handleModalClose"/>
-    </div>
+      </div>
   </template>
   
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import api from '@/api';
 import AlertModal from '@/components/AlertModal.vue';
-import api from '@/api'; // 封裝好的 axios instance
-import { onMounted } from 'vue'
-import { useRoute } from 'vue-router'//登出用
 
-//  固定 Guest TOKEN，僅用於登入與發送驗證碼
-const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdCIsIlJvbGUiOiJHdWVzdCIsIm5iZiI6MTczNTY4OTYwMCwiZXhwIjoyMDUxMjIyNDAwLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo3MDUwIiwiYXVkIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NzA1MCJ9.x5hB3TvkzpZ1GNjK_2WY1tjpIL_vwCz-AG9RzLT_W0s'; 
+const router = useRouter();
+const route = useRoute();
 
 const username = ref('');
 const password = ref('');
 const email = ref('');
 const captcha = ref('');
-const rememberMe = ref(false);
-const countdown = ref(0);
-const timer = ref(null);
 const errors = ref({});
 const showModal = ref(false);
 const modalMessage = ref('');
 const shouldRedirect = ref(false);
-const router = useRouter();
+const token = ref('');
+
+const countdown = ref(0);
+const timer = ref(null);
 
 const usernameRef = ref(null);
 const passwordRef = ref(null);
 const emailRef = ref(null);
 const captchaRef = ref(null);
 
-// 顯示 modal
+// 顯示提示
 function showAlert(message, redirect = false) {
   modalMessage.value = message;
   showModal.value = true;
   shouldRedirect.value = redirect;
 }
-
-// 關閉 modal 後跳轉
 function handleModalClose() {
   showModal.value = false;
   if (shouldRedirect.value) {
@@ -158,12 +147,23 @@ function validateLoginFields() {
   return true;
 }
 
+// 取得訪客 token 並儲存
+async function getGuestToken() {
+  try {
+    const res = await api.get('/api/MemberManagement/guest-token');
+    if (res.data.status === 'Success') {
+      token.value = res.data.token;
+      localStorage.setItem('guestToken', token.value); // ✅ 正確儲存 guest token
+    } else {
+      showAlert('取得訪客身份失敗');
+    }
+  } catch {
+    showAlert('系統錯誤，請稍後再試');
+  }
+}
+
 //  獲取驗證碼
-import { nextTick } from 'vue'
-
 async function getCode() {
-  await nextTick(); // 確保最新值已寫入 v-model
-
   validateUsername();
   validatePassword();
   validateEmail();
@@ -178,10 +178,19 @@ async function getCode() {
     return;
   }
 
+  // 如果 token 尚未準備好，等它取得
+  if (!token.value) {
+    await getGuestToken();
+    if (!token.value) {
+      showAlert('訪客憑證取得失敗，請稍後再試');
+      return;
+    }
+  }
+
   try {
     const response = await api.post('/api/MemberManagement/LoginVerificationCode',
       { sentEmail: email.value },
-      { headers: { Authorization: `Bearer ${TOKEN}` } }
+      { headers: { Authorization: `Bearer ${token.value}` } }
     );
 
     if (response.data.status === 'Success') {
@@ -200,78 +209,63 @@ async function getCode() {
   }
 }
 
-// 登入
+// 使用者登入
 async function submitForm() {
   if (!validateLoginFields()) return;
-
   try {
-    const response = await api.post('/api/MemberManagement/Login', {
+    const res = await api.post('/api/MemberManagement/Login', {
       Login_AccountName: username.value,
       Login_Password: password.value,
-      Login_VerificationCode: captcha.value,
+      Login_VerificationCode: captcha.value
     }, {
-      headers: { Authorization: `Bearer ${TOKEN}` }
+      headers: { Authorization: `Bearer ${token.value}` }
     });
 
-    if (response.data.status === 'Success') {
-      localStorage.setItem('userToken', response.data.token);
-      localStorage.setItem('userEmail', email.value);
-      localStorage.setItem('accountName', response.data.accountName);
+    if (res.data.status === 'Success') {
+      localStorage.setItem('userToken', res.data.token); // 僅存 userToken
       localStorage.setItem('userRole', 'User');
-
+      localStorage.setItem('justLoggedIn', 'true');
+      localStorage.setItem('userEmail', email.value);
       showAlert('登入成功！', true);
     } else {
-      showAlert(response.data.message || '登入失敗');
+      showAlert(res.data.message || '登入失敗');
     }
-  } catch (error) {
-    const message = error.response?.data?.message;
-    if (message) {
-      showAlert(message);
-    } else {
-      showAlert('登入發生錯誤，請稍後再試');
-    }
+  } catch (err) {
+    showAlert(err.response?.data?.message || '登入錯誤');
   }
 }
 
-//訪客登入
-const guestLogin = async () => {
-  try {
-    const response = await api.get('/api/MemberManagement/guest-token');
+// 訪客登入流程
+async function guestLogin() {
+  await getGuestToken(); // 會設定 token.value 並儲存 guestToken
+  localStorage.setItem('userRole', 'Guest');
+  localStorage.setItem('justLoggedIn', 'true');
+  showAlert('以訪客身份登入成功', true);
+}
 
-    if (response.data.status === 'Success') {
-      const token = response.data.token;
-      localStorage.setItem('guestToken', token);
-      localStorage.setItem('userRole', 'Guest'); //  加入訪客身份紀錄
+// 首頁進入後處理登出訊息
+onMounted(() => {
+  getGuestToken(); // 預先取得訪客 token（即使是正式登入者也無妨）
 
-      showAlert('已使用訪客身份登入', true);
-    } else {
-      showAlert('訪客登入失敗，請稍後再試');
-    }
-  } catch (error) {
-    console.error('訪客登入錯誤:', error);
-    showAlert('系統錯誤，請稍後再試');
+  const justLoggedIn = localStorage.getItem('justLoggedIn');
+  if (route.query.loggedOut === 'true' && justLoggedIn !== 'true') {
+    showAlert('您已成功登出');
   }
-};
+
+  // 清除 justLoggedIn 與 query
+  localStorage.removeItem('justLoggedIn');
+  if (route.query.loggedOut) {
+    router.replace({ path: route.path });
+  }
+});
 
 function goToRegister() {
   router.push('/register');
 }
-
-
-//登出時
-const route = useRoute()
-
-onMounted(() => {
-  if (route.query.loggedOut === 'true') {
-    showAlert('您已成功登出')
-    // 清除 URL 中的 query 參數（避免重新整理又跳出）
-    router.replace({ query: {} })
-  }
-})
-
 </script>
 
-  
+
+
   <style scoped>
   .login-container {
     width: 100%;

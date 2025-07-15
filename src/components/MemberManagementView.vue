@@ -34,22 +34,22 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import AlertModal from '@/components/AlertModal.vue' 
+import AlertModal from '@/components/AlertModal.vue'
 
 const router = useRouter()
 
 // AlertModal 控制
-const modalVisible   = ref(false)
-const modalMessage   = ref('')
-const pendingAction  = ref(null)     // 用來記住確認按鈕後要執行什麼動作
+const modalVisible = ref(false)
+const modalMessage = ref('')
+const pendingAction = ref(null) // 用來記住確認按鈕後要執行什麼動作
 
 // 個人資料
-const isGuest        = ref(false)
-const memberFields   = ref([])       // 暱稱 、 帳號 、Email 、 密碼
-const userId         = ref(null)
-const tokenIssuedAt  = ref(null)
+const isGuest = ref(false)
+const memberFields = ref([]) // 暱稱、帳號、Email、密碼
+const userId = ref(null)
+const tokenIssuedAt = ref(null)
 
-/* ─────────────────────── JWT 工具 ─────────────────────── */
+/* ──────────────── JWT 工具 ──────────────── */
 const parseJwt = (token) => {
   try {
     const base64Url = token.split('.')[1]
@@ -60,67 +60,19 @@ const parseJwt = (token) => {
   }
 }
 
-/*  AlertModal   */
+/* ──────────────── AlertModal ──────────────── */
 const showAlert = (msg) => {
   modalMessage.value = msg
   pendingAction.value = null
   modalVisible.value = true
 }
 
-// 顯示提示對話框（用於登出）
 const confirmDialog = (msg, actionKey) => {
   modalMessage.value = msg
-  pendingAction.value = actionKey 
+  pendingAction.value = actionKey
   modalVisible.value = true
 }
 
-/*  API：取得個人資料  */
-const fetchProfile = async () => {
-  const token = localStorage.getItem('userToken')
-  if (!token) {
-    router.push('/login')
-    return
-  }
-
-  // 訪客就不打 profile API
-  const payload = parseJwt(token)
-  isGuest.value = payload?.Role === 'Guest'
-  if (isGuest.value) return
-
-  try {
-    const { data } = await axios.get('/api/MemberManagement/profile', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-
-    /*   後端如果幫忙把 user.Status 帶回來，可在這裡擋住  */
-    if (data.userStatus === 'Logout') {
-      localStorage.removeItem('userToken')
-      router.push({ path: '/login', query: { loggedOut: 'true' } })
-      return
-    }
-
-    if (data.status === 'Success') {
-      userId.value        = data.userId
-      tokenIssuedAt.value = data.tokenIssuedAt
-
-      memberFields.value = [
-        { label: '暱稱',   value: data.nickname,    editable: true,  icon: require('@/assets/icons/icon.svg') },
-        { label: '帳號名稱', value: data.accountName, editable: false },
-        { label: 'Email',  value: data.email,       editable: true,  icon: require('@/assets/icons/icon.svg') },
-        { label: '密碼',   value: '******',         editable: true,  icon: require('@/assets/icons/icon.svg') }
-      ]
-    }
-  } catch (err) {
-    console.error('取得使用者資訊失敗', err)
-    showAlert('無法取得會員資料，請重新登入')
-    router.push('/login')
-  }
-}
-
-/*  API：登出流程  */
-const askLogout = () => confirmDialog('確定要登出？', 'logout')
-
-// 點擊 Modal 的「確定」按鈕時
 const handleModalConfirm = async () => {
   if (pendingAction.value === 'logout') {
     await doLogout()
@@ -129,27 +81,29 @@ const handleModalConfirm = async () => {
   pendingAction.value = null
 }
 
-// 點擊 Modal 的「取消」按鈕時
 const handleModalCancel = () => {
   modalVisible.value = false
   pendingAction.value = null
 }
 
+/* ──────────────── 登出功能 ──────────────── */
+const askLogout = () => confirmDialog('確定要登出？', 'logout')
+
 const doLogout = async () => {
   try {
     const token = localStorage.getItem('userToken')
     const { data } = await axios.post('/api/MemberManagement/Logout', {}, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` } 
     })
 
     if (data.status === 'Success') {
-      // 清除所有可能暫存資訊
       localStorage.removeItem('userToken')
+      localStorage.removeItem('userRole')      // 新增
       localStorage.removeItem('userEmail')
       localStorage.removeItem('nickname')
       localStorage.removeItem('accountName')
 
-      router.push({ path: '/', query: { loggedOut: 'true' } })
+      router.push({ path: '/', query: { loggedOut: 'true' } }) // 修正導向
     } else {
       showAlert(data.message || '登出失敗')
     }
@@ -159,28 +113,69 @@ const doLogout = async () => {
   }
 }
 
-/*  其他操作  */
+/* ──────────────── 取得個人資料 ──────────────── */
+const fetchProfile = async () => {
+  const token = localStorage.getItem('userToken')
+  if (!token) {
+    router.push('/login')
+    return
+  }
+
+  const payload = parseJwt(token)
+  isGuest.value = payload?.Role === 'Guest'
+  if (isGuest.value) return
+
+  try {
+    const { data } = await axios.get('/api/MemberManagement/profile', {
+     headers: { Authorization: `Bearer ${token}` } 
+
+    })
+
+    if (data.userStatus === 'Logout') {
+      localStorage.removeItem('userToken')
+      router.push({ path: '/login', query: { loggedOut: 'true' } })
+      return
+    }
+
+    if (data.status === 'Success') {
+      userId.value = data.userId
+      tokenIssuedAt.value = data.tokenIssuedAt
+
+      memberFields.value = [
+        { label: '暱稱', value: data.nickname, editable: true, icon: require('@/assets/icons/icon.svg') },
+        { label: '帳號名稱', value: data.accountName, editable: false },
+        { label: 'Email', value: data.email, editable: true, icon: require('@/assets/icons/icon.svg') },
+        { label: '密碼', value: '******', editable: true, icon: require('@/assets/icons/icon.svg') }
+      ]
+    }
+  } catch (err) {
+    console.error('取得使用者資訊失敗', err)
+    showAlert('無法取得會員資料，請重新登入')
+    router.push('/login')
+  }
+}
+
+/* ──────────────── 其他操作 ──────────────── */
 function handleEdit(label) {
-  if (label === '暱稱')      router.push('/modify-nickname')
+  if (label === '暱稱') router.push('/modify-nickname')
   else if (label === 'Email') router.push('/update-email')
-  else if (label === '密碼')  router.push('/reset-password')
+  else if (label === '密碼') router.push('/reset-password')
 }
 
 const goToDeleteAccount = () => router.push('/delete-account')
 
-/* ─────────────────────── mounted ─────────────────────── */
+/* ──────────────── mounted ──────────────── */
 onMounted(() => {
   fetchProfile()
 
-  // 編輯成功後用 ?updated=true 回到此頁，重新整理資料
   const query = router.currentRoute.value.query
   if (query.updated === 'true') {
     fetchProfile()
     router.replace({ query: {} })
   }
 })
-
 </script>
+
 
 <style scoped>
 .main-container {

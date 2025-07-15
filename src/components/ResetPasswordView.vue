@@ -8,7 +8,7 @@
     <form class="form" @submit.prevent="submitForm">
       <!-- 原本密碼 -->
       <div class="form-group">
-        <input v-model="originalPassword" type="password" placeholder="請輸入原本密碼" @blur="validateOriginalPassword" />
+        <input v-model="originalPassword" type="password" placeholder="請輸入原本密碼" maxlength="20" @blur="validateOriginalPassword" />
         <small :class="errors.originalPassword ? 'error-text' : 'hint-text'">
           {{ errors.originalPassword || '密碼格式錯誤，格式為12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
@@ -16,7 +16,7 @@
 
       <!-- 新密碼 -->
       <div class="form-group">
-        <input v-model="newPassword" type="password" placeholder="請輸入新密碼" @blur="validateNewPassword" />
+        <input v-model="newPassword" type="password" placeholder="請輸入新密碼" maxlength="20" @blur="validateNewPassword" />
         <small :class="errors.newPassword ? 'error-text' : 'hint-text'">
           {{ errors.newPassword || '密碼格式錯誤，格式為12-20 字元，包含大小寫英文與數字，不得有空白與特殊符號(@ . - _ ! ?...等)' }}
         </small>
@@ -24,7 +24,7 @@
 
       <!-- 再次輸入新密碼 -->
       <div class="form-group">
-        <input v-model="confirmPassword" type="password" placeholder="請再次輸入新密碼" @blur="validateConfirmPassword" />
+        <input v-model="confirmPassword" type="password" placeholder="請再次輸入新密碼" maxlength="20" @blur="validateConfirmPassword" />
         <small :class="errors.confirmPassword ? 'error-text' : 'hint-text'">
           {{ errors.confirmPassword || '需與上面密碼一致' }}
         </small>
@@ -45,7 +45,7 @@
 
       <!-- 驗證碼 -->
       <div class="form-group">
-        <input v-model="code" type="text" maxlength="6" placeholder="請輸入6位數驗證碼" @blur="validateCode" />
+        <input v-model="code" type="text" maxlength="6" placeholder="請輸入6位數驗證碼"  @blur="validateCode" />
         <small :class="errors.code ? 'error-text' : 'hint-text'">
           {{ errors.code || '請輸入6位數字驗證碼' }}
         </small>
@@ -190,7 +190,7 @@ const submitForm = async () => {
 
     if (response.data.status === 'Success') {
       showAlert(response.data.message || '密碼修改成功')
-      router.push('/member-management')
+      router.push('/')
     } else {
       showAlert(response.data.message || '密碼修改失敗')
     }
@@ -210,7 +210,7 @@ const showAlert = (message) => {
 }
 
 
-const goBack = () => router.push('/')
+const goBack = () => router.push('/member-management')
 </script>
 
 

@@ -244,8 +244,11 @@ async function guestLogin() {
 }
 
 // 首頁進入後處理登出訊息
-onMounted(() => {
-  getGuestToken(); // 預先取得訪客 token（即使是正式登入者也無妨）
+onMounted(async () => {
+  if (!token.value) {
+    const newToken = await getGuestToken();
+    token.value = newToken;
+  }
 
   const justLoggedIn = localStorage.getItem('justLoggedIn');
   if (route.query.loggedOut === 'true' && justLoggedIn !== 'true') {

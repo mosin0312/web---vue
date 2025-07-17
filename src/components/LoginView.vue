@@ -54,7 +54,7 @@
         </div>
 
       </form>
-      <AlertModal :visible="showModal" :message="modalMessage" @confirm="handleModalClose" @close="handleModalClose"/>
+      <AlertModal :visible="showModal" :message="modalMessage" @confirm="handleModalClose" @close="handleModalClose" />
       </div>
   </template>
   
@@ -153,7 +153,7 @@ async function getGuestToken() {
     const res = await api.get('/api/MemberManagement/guest-token');
     if (res.data.status === 'Success') {
       token.value = res.data.token;
-      localStorage.setItem('guestToken', token.value); // ✅ 正確儲存 guest token
+      localStorage.setItem('guestToken', token.value); //儲存 guest token
     } else {
       showAlert('取得訪客身份失敗');
     }

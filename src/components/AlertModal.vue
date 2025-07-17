@@ -18,6 +18,7 @@ export default {
   methods: {
     handleConfirm() {
       this.$emit('confirm') 
+      this.$emit('close')
     }
   }
 }

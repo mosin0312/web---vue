@@ -223,7 +223,8 @@ async function submitForm() {
 
     if (res.data.status === 'Success') {
       localStorage.setItem('userToken', res.data.token); // 僅存 userToken
-      localStorage.setItem('userRole', 'User');
+      //localStorage.setItem('role', 'User');           // 這是 WebView 要用的
+      localStorage.setItem('userRole', 'User');       //  Vue app 要用的話保留
       localStorage.setItem('justLoggedIn', 'true');
       localStorage.setItem('userEmail', email.value);
       showAlert('登入成功！', true);

@@ -139,16 +139,12 @@ const validateCode = () => {
   errors.value.code = pattern.test(code.value) ? '' : '驗證碼須為 6 位數字'
 }
 
-// 發送驗證碼
+// 發送驗證碼（只需 email）
 const sendCode = async () => {
-  validatePhone()
   validateEmail()
 
-  if (errors.value.phone || errors.value.email) {
-    const missing = []
-    if (errors.value.phone) missing.push('手機')
-    if (errors.value.email) missing.push('Email')
-    showAlert(`請先正確填寫：${missing.join('、')}`)
+  if (errors.value.email) {
+    showAlert('請先正確填寫：Email')
     return
   }
 
@@ -187,7 +183,8 @@ const sendCode = async () => {
   }
 }
 
-// 送出驗證表單
+
+// 提交找回帳號表單（驗證 email + phone + 驗證碼）
 const submitForm = async () => {
   validatePhone()
   validateEmail()
@@ -218,7 +215,7 @@ const submitForm = async () => {
     )
 
     if (res.data.status === 'Success') {
-      showAlert(res.data.message)
+      showAlert(res.data.message || '驗證成功，帳號已寄出至您的 Email')
       setTimeout(() => {
         router.push('/')
       }, 2000)

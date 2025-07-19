@@ -99,7 +99,7 @@ function handleModalClose() {
   }
 }
 
-//  單欄位驗證
+// 單欄位驗證
 function validateUsername() {
   const pattern = /^(?!.*\s)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{12,20}$/;
   errors.value.username = pattern.test(username.value) ? '' : '帳號需 12-20 字元，包含大小寫英文與數字，無空白與特殊符號';
@@ -117,7 +117,7 @@ function validateCaptcha() {
   errors.value.captcha = pattern.test(captcha.value) ? '' : '驗證碼需為 6 位數字';
 }
 
-//全欄位驗證
+// 全欄位驗證
 function validateLoginFields() {
   errors.value = {};
   validateUsername();
@@ -147,22 +147,25 @@ function validateLoginFields() {
   return true;
 }
 
-// 取得訪客 token 並儲存
+// 取得訪客 token 並回傳
 async function getGuestToken() {
   try {
     const res = await api.get('/api/MemberManagement/guest-token');
     if (res.data.status === 'Success') {
-      token.value = res.data.token;
-      localStorage.setItem('guestToken', token.value); //儲存 guest token
+      const guestToken = res.data.token;
+      localStorage.setItem('guestToken', guestToken);
+      return guestToken;
     } else {
       showAlert('取得訪客身份失敗');
+      return null;
     }
   } catch {
     showAlert('系統錯誤，請稍後再試');
+    return null;
   }
 }
 
-//  獲取驗證碼
+// 發送驗證碼
 async function getCode() {
   validateUsername();
   validatePassword();
@@ -178,73 +181,96 @@ async function getCode() {
     return;
   }
 
-  // 如果 token 尚未準備好，等它取得
-  if (!token.value) {
-    await getGuestToken();
-    if (!token.value) {
-      showAlert('訪客憑證取得失敗，請稍後再試');
-      return;
+  // 發送驗證碼邏輯（封裝成函式便於重試）
+  async function sendVerification() {
+    try {
+      const res = await api.post('/api/MemberManagement/LoginVerificationCode',
+        { sentEmail: email.value },
+        { headers: { Authorization: `Bearer ${token.value}` } }
+      );
+
+      if (res.data.status === 'Success') {
+        showAlert(`驗證碼已發送至 ${email.value}`);
+        countdown.value = 60;
+        timer.value = setInterval(() => {
+          countdown.value--;
+          if (countdown.value <= 0) clearInterval(timer.value);
+        }, 1000);
+      } else {
+        showAlert(res.data.message || '發送驗證碼失敗');
+      }
+    } catch (error) {
+      if (error.response?.status === 401) {
+        const newToken = await getGuestToken();
+        if (newToken) {
+          token.value = newToken;
+          await sendVerification(); // Retry
+        } else {
+          showAlert('訪客憑證過期，請稍後再試');
+        }
+      } else {
+        const message = error.response?.data?.message;
+        showAlert(message || '發送驗證碼失敗，請稍後再試');
+      }
     }
   }
 
-  try {
-    const response = await api.post('/api/MemberManagement/LoginVerificationCode',
-      { sentEmail: email.value },
-      { headers: { Authorization: `Bearer ${token.value}` } }
-    );
-
-    if (response.data.status === 'Success') {
-      showAlert(`驗證碼已發送至 ${email.value}`);
-      countdown.value = 60;
-      timer.value = setInterval(() => {
-        countdown.value--;
-        if (countdown.value <= 0) clearInterval(timer.value);
-      }, 1000);
-    } else {
-      showAlert(response.data.message || '發送驗證碼失敗');
-    }
-  } catch (error) {
-    const message = error.response?.data?.message;
-    showAlert(message || '發送驗證碼失敗，請稍後再試');
-  }
+  await sendVerification();
 }
 
 // 使用者登入
 async function submitForm() {
   if (!validateLoginFields()) return;
-  try {
-    const res = await api.post('/api/MemberManagement/Login', {
-      Login_AccountName: username.value,
-      Login_Password: password.value,
-      Login_VerificationCode: captcha.value
-    }, {
-      headers: { Authorization: `Bearer ${token.value}` }
-    });
 
-    if (res.data.status === 'Success') {
-      localStorage.setItem('userToken', res.data.token); // 僅存 userToken
-      //localStorage.setItem('role', 'User');           // 這是 WebView 要用的
-      localStorage.setItem('userRole', 'User');       //  Vue app 要用的話保留
-      localStorage.setItem('justLoggedIn', 'true');
-      localStorage.setItem('userEmail', email.value);
-      showAlert('登入成功！', true);
-    } else {
-      showAlert(res.data.message || '登入失敗');
+  async function login() {
+    try {
+      const res = await api.post('/api/MemberManagement/Login', {
+        Login_AccountName: username.value,
+        Login_Password: password.value,
+        Login_VerificationCode: captcha.value
+      }, {
+        headers: { Authorization: `Bearer ${token.value}` }
+      });
+
+      if (res.data.status === 'Success') {
+        localStorage.setItem('userToken', res.data.token);
+        localStorage.setItem('userRole', 'User');
+        localStorage.setItem('justLoggedIn', 'true');
+        localStorage.setItem('userEmail', email.value);
+        showAlert('登入成功！', true);
+      } else {
+        showAlert(res.data.message || '登入失敗');
+      }
+    } catch (err) {
+      if (err.response?.status === 401) {
+        const newToken = await getGuestToken();
+        if (newToken) {
+          token.value = newToken;
+          await login(); // Retry
+        } else {
+          showAlert('訪客憑證過期，請稍後再試');
+        }
+      } else {
+        showAlert(err.response?.data?.message || '登入錯誤');
+      }
     }
-  } catch (err) {
-    showAlert(err.response?.data?.message || '登入錯誤');
+  }
+
+  await login();
+}
+
+// 訪客登入
+async function guestLogin() {
+  const newToken = await getGuestToken();
+  if (newToken) {
+    token.value = newToken;
+    localStorage.setItem('userRole', 'Guest');
+    localStorage.setItem('justLoggedIn', 'true');
+    showAlert('以訪客身份登入成功', true);
   }
 }
 
-// 訪客登入流程
-async function guestLogin() {
-  await getGuestToken(); // 會設定 token.value 並儲存 guestToken
-  localStorage.setItem('userRole', 'Guest');
-  localStorage.setItem('justLoggedIn', 'true');
-  showAlert('以訪客身份登入成功', true);
-}
-
-// 首頁進入後處理登出訊息
+// 預設啟動時取得 token
 onMounted(async () => {
   if (!token.value) {
     const newToken = await getGuestToken();
@@ -256,7 +282,6 @@ onMounted(async () => {
     showAlert('您已成功登出');
   }
 
-  // 清除 justLoggedIn 與 query
   localStorage.removeItem('justLoggedIn');
   if (route.query.loggedOut) {
     router.replace({ path: route.path });

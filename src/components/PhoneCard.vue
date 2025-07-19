@@ -9,14 +9,15 @@
     <div class="search-container">
       <img src="@/assets/icons/search-icon.svg" alt="Search Icon" class="search-icon" />
       <input 
-        type="text" 
-        placeholder="Search..." 
-        class="search-input" 
-        aria-label="Search call records" 
-        @focus="onFocus" 
-        @blur="onBlur"
-        v-model="searchQuery"
-      />
+  type="text" 
+  placeholder="Search..." 
+  class="search-input" 
+  aria-label="Search call records" 
+  @focus="onFocus" 
+  @blur="onBlur"
+  v-model="searchQuery"
+  @keyup.enter="handleSearch"
+/>
     </div>
 
     <!-- Call List -->
@@ -53,69 +54,120 @@
       </article>
     </section>
   </div>
+  <AlertModal :visible="showModal" :message="modalMessage" @close="showModal = false" />
 </template>
 
-<script>
-export default {
-  name: 'CallHistoryPage',
-  data() {
-    return {
-      callEntries: [],
-      searchQuery: ''
-    };
-  },
-  computed: {
-    filteredCallEntries() {
-      if (!this.searchQuery) return this.callEntries;
-      return this.callEntries.filter((e) =>
-        e.number?.includes(this.searchQuery)
-      );
-    }
-  },
-  mounted() {
-    // 建立接收通話資料的 JS interface
-    window.CallLogReceiver = {
-      receive: (data) => {
-        try {
-          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-          this.callEntries = parsed;
-        } catch (e) {
-          console.error('解析通話記錄失敗', e);
-        }
-      }
-    };
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
+import AlertModal from '@/components/AlertModal.vue'
 
-    // 請求 Android 通話記錄
-    if (window.Android && window.Android.getCallLogs) {
-      window.Android.getCallLogs();
+// Router
+const router = useRouter()
+
+// 狀態變數
+const callEntries = ref([])
+const searchQuery = ref('')
+const showModal = ref(false)
+const modalMessage = ref('')
+
+// 警告框顯示
+function showAlert(message) {
+  modalMessage.value = message
+  showModal.value = true
+}
+
+// 搜尋過濾
+const filteredCallEntries = computed(() => {
+  if (!searchQuery.value) return callEntries.value
+  return callEntries.value.filter((e) =>
+    e.number?.includes(searchQuery.value)
+  )
+})
+
+// 日期格式化
+function formatDate(timestamp) {
+  const date = new Date(Number(timestamp))
+  return date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })
+}
+
+function formatTime(timestamp) {
+  const date = new Date(Number(timestamp))
+  return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
+}
+
+// 通話方向與狀態圖示
+function getDirectionIcon(type) {
+  return require(`@/assets/icons/${type === '撥出' ? 'arrow-outgoing' : 'arrow-incoming'}.svg`)
+}
+
+function getCallIcon(duration) {
+  return require(`@/assets/icons/${duration === '0' ? 'call-end' : 'call-received'}.svg`)
+}
+
+// 輸入框事件
+function onFocus(e) {
+  e.target.placeholder = ''
+}
+function onBlur(e) {
+  if (!e.target.value) e.target.placeholder = 'Search...'
+}
+
+// 查詢電話資訊
+async function handleSearch() {
+  const number = searchQuery.value.trim()
+  if (!number) {
+    showAlert('請輸入電話號碼')
+    return
+  }
+
+  try {
+    const token = localStorage.getItem('userToken')
+    const res = await axios.get(`/api/lookup/${number}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (res.data?.results) {
+      router.push({
+        path: '/search-phone',
+        query: {
+          number,
+          data: encodeURIComponent(JSON.stringify(res.data.results))
+        }
+      })
     } else {
-      console.warn('Android 通話記錄橋接尚未就緒');
+      showAlert('查無此號碼的任何資料')
     }
-  },
-  methods: {
-    getDirectionIcon(type) {
-      return require(`@/assets/icons/${type === '撥出' ? 'arrow-outgoing' : 'arrow-incoming'}.svg`);
-    },
-    getCallIcon(duration) {
-      return require(`@/assets/icons/${duration === '0' ? 'call-end' : 'call-received'}.svg`);
-    },
-    formatDate(timestamp) {
-      const date = new Date(Number(timestamp));
-      return date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
-    },
-    formatTime(timestamp) {
-      const date = new Date(Number(timestamp));
-      return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
-    },
-    onFocus(e) {
-      e.target.placeholder = '';
-    },
-    onBlur(e) {
-      if (!e.target.value) e.target.placeholder = 'Search...';
+  } catch (err) {
+    console.error('查詢失敗:', err)
+    showAlert('查詢失敗，請稍後再試')
+  }
+}
+
+// 初始掛載邏輯
+onMounted(() => {
+  window.CallLogReceiver = {
+    receive: (data) => {
+      try {
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data
+        callEntries.value = parsed
+      } catch (e) {
+        console.error('解析通話記錄失敗', e)
+      }
     }
   }
-};
+
+  if (window.Android && window.Android.getCallLogs) {
+    window.Android.getCallLogs()
+  } else {
+    console.warn('Android 通話記錄橋接尚未就緒')
+  }
+})
 </script>
+
 
 <style scoped>
 .call-history-page {

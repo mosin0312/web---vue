@@ -17,6 +17,7 @@ import UpdateEmail from '@/components/UpdateEmail.vue'
 import DeleteAccountView from '@/components/DeleteAccountView.vue'
 import Home from '@/components/Home.vue'
 import PhoneCard from '@/components/PhoneCard.vue'
+import SearchResults from '@/components/SearchResults.vue'
 
 const routes = [
   { path: '/', component: LoginView },
@@ -37,6 +38,7 @@ const routes = [
   {path: '/update-email',component:UpdateEmail},
   {path: '/home',component:Home},
   {path: '/phonecard',component:PhoneCard},
+  {path: '/search-phone',component:SearchResults},
 ]
 
 const router = createRouter({

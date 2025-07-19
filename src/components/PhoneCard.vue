@@ -1,49 +1,52 @@
 <template>
   <div class="call-history-page">
-    <header class="call-header">
-      <img :src="require('@/assets/icons/header-icon.svg')" alt="Phone icon" class="header-icon" />
-      <h1 class="header-title">通話記錄</h1>
-    </header>
+    <!-- Header -->
+    <div class="call-header">
+      <img src="@/assets/icons/header-icon.svg" alt="icon" class="header-icon" />
+      <h1 class="header-title">通話紀錄</h1>
+    </div>
 
     <!-- Search -->
     <div class="search-container">
-      <img src="@/assets/icons/search-icon.svg" alt="Search Icon" class="search-icon" />
-      <input 
-  type="text" 
-  placeholder="Search..." 
-  class="search-input" 
-  aria-label="Search call records" 
-  @focus="onFocus" 
-  @blur="onBlur"
-  v-model="searchQuery"
-  @keyup.enter="handleSearch"
-/>
+      <img src="@/assets/icons/search-icon.svg" alt="search" class="search-icon" />
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Search..."
+        v-model="searchQuery"
+        @focus="onFocus"
+        @blur="onBlur"
+      />
     </div>
 
     <!-- Call List -->
-    <section class="call-list">
-      <article
-        v-for="(entry, index) in filteredCallEntries"
-        :key="index"
-        class="call-entry"
-      >
+    <div class="call-list">
+      <div v-for="entry in filteredCallEntries" :key="entry.number + entry.date" class="call-entry">
+        
+        <!-- 上層：頭像、聯絡人、時間 -->
         <div class="call-entry-container">
-          <div class="user-info">
-            <div class="avatar-container">
-              <img :src="require('@/assets/icons/avatar.svg')" alt="User" class="avatar" />
-              <div class="status-indicator">
-                <img :src="require('@/assets/icons/property-private.svg')" alt="Status" class="status-icon" />
-              </div>
-            </div>
-            <div class="user-details">
-              <h2 class="user-name">{{ entry.name || '未知來電者' }}</h2>
-              <p class="user-phone">{{ entry.number }}</p>
+          <!-- 左：頭像 -->
+          <div class="avatar-container">
+            <img src="@/assets/icons/avatar.svg" alt="avatar" class="avatar" />
+          </div>
+
+          <!-- 中：聯絡人 -->
+          <div class="caller-info">
+            <div class="caller-name">{{ entry.name || entry.number }}</div>
+            <div
+              class="caller-number dialable"
+              v-if="entry.name && entry.name !== entry.number"
+              @click="dial(entry.number)"
+            >
+              {{ entry.number }}
             </div>
           </div>
-          <div class="call-details">
-            <time class="call-date">{{ formatDate(entry.date) }}</time>
+
+          <!-- 右：時間與通話圖示 -->
+          <div class="call-details" v-if="entry?.date">
+            <div class="call-date">{{ formatDate(entry.date) }}</div>
             <div class="call-time-container">
-              <time class="call-time">{{ formatTime(entry.date) }}</time>
+              <div class="call-time">{{ formatTime(entry.date) }}</div>
               <img :src="getDirectionIcon(entry.type)" class="direction-icon" />
             </div>
             <div class="call-icon-container">
@@ -51,53 +54,57 @@
             </div>
           </div>
         </div>
-      </article>
-    </section>
+
+        <!-- 下層：風險圖示與信賴度 -->
+        <div v-if="riskMap[entry.number]" class="priority-container">
+          <img
+            :src="getRiskIcon(riskMap[entry.number]?.trustLevel)"
+            class="priority-icon"
+            alt="風險圖示"
+          />
+          <span class="priority-label">{{ riskMap[entry.number]?.trustLevel }}</span>
+        </div>
+      </div>
+    </div>
+
+    <AlertModal :visible="showModal" :message="modalMessage" @close="showModal = false" />
   </div>
-  <AlertModal :visible="showModal" :message="modalMessage" @close="showModal = false" />
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import axios from 'axios'
 import AlertModal from '@/components/AlertModal.vue'
 
-// Router
-const router = useRouter()
-
-// 狀態變數
 const callEntries = ref([])
 const searchQuery = ref('')
+const riskMap = ref({})
 const showModal = ref(false)
 const modalMessage = ref('')
 
-// 警告框顯示
 function showAlert(message) {
   modalMessage.value = message
   showModal.value = true
 }
 
-// 搜尋過濾
 const filteredCallEntries = computed(() => {
-  if (!searchQuery.value) return callEntries.value
-  return callEntries.value.filter((e) =>
-    e.number?.includes(searchQuery.value)
-  )
+  return callEntries.value
+    ?.filter((e) => e && e.number && e.date)
+    ?.filter((e) => e.number.includes(searchQuery.value || '')) || []
 })
 
-// 日期格式化
 function formatDate(timestamp) {
+  if (!timestamp) return '無日期'
   const date = new Date(Number(timestamp))
   return date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })
 }
 
 function formatTime(timestamp) {
+  if (!timestamp) return ''
   const date = new Date(Number(timestamp))
   return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
 }
 
-// 通話方向與狀態圖示
 function getDirectionIcon(type) {
   return require(`@/assets/icons/${type === '撥出' ? 'arrow-outgoing' : 'arrow-incoming'}.svg`)
 }
@@ -106,7 +113,21 @@ function getCallIcon(duration) {
   return require(`@/assets/icons/${duration === '0' ? 'call-end' : 'call-received'}.svg`)
 }
 
-// 輸入框事件
+function getRiskIcon(trustLevel) {
+  if (trustLevel?.includes('高')) return require('@/assets/icons/risk-high.svg')
+  if (trustLevel?.includes('中')) return require('@/assets/icons/risk-medium.svg')
+  if (trustLevel?.includes('低')) return require('@/assets/icons/risk-low.svg')
+  return require('@/assets/icons/risk-unknown.svg')
+}
+
+function dial(number) {
+  if (window.Android?.dialNumber) {
+    window.Android.dialNumber(number)
+  } else {
+    showAlert('目前無法撥打電話')
+  }
+}
+
 function onFocus(e) {
   e.target.placeholder = ''
 }
@@ -114,48 +135,31 @@ function onBlur(e) {
   if (!e.target.value) e.target.placeholder = 'Search...'
 }
 
-// 查詢電話資訊
-async function handleSearch() {
-  const number = searchQuery.value.trim()
-  if (!number) {
-    showAlert('請輸入電話號碼')
-    return
-  }
-
-  try {
-    const token = localStorage.getItem('userToken')
-    const res = await axios.get(`/api/lookup/${number}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-
-    if (res.data?.results) {
-      router.push({
-        path: '/search-phone',
-        query: {
-          number,
-          data: encodeURIComponent(JSON.stringify(res.data.results))
-        }
-      })
-    } else {
-      showAlert('查無此號碼的任何資料')
-    }
-  } catch (err) {
-    console.error('查詢失敗:', err)
-    showAlert('查詢失敗，請稍後再試')
-  }
-}
-
-// 初始掛載邏輯
 onMounted(() => {
   window.CallLogReceiver = {
-    receive: (data) => {
+    receive: async (data) => {
       try {
         const parsed = typeof data === 'string' ? JSON.parse(data) : data
         callEntries.value = parsed
+
+        const token = localStorage.getItem('userToken')
+        for (const entry of parsed) {
+          const phone = entry.number
+          if (!phone) continue
+          try {
+            const res = await axios.get(`/api/lookup/${phone}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+            if (res.data?.results?.length > 0) {
+              riskMap.value[phone] = res.data.results[0]
+            }
+          } catch (err) {
+            console.warn(`查詢 ${phone} 風險失敗`, err)
+          }
+        }
       } catch (e) {
         console.error('解析通話記錄失敗', e)
+        showAlert('無法載入通話記錄')
       }
     }
   }
@@ -246,9 +250,10 @@ onMounted(() => {
 
 .call-entry-container {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
+
 
 .user-info {
   display: flex;
@@ -257,9 +262,25 @@ onMounted(() => {
 }
 
 .avatar-container {
-  width: 44px;
-  height: 55px;
-  position: relative;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.caller-info {
+  flex-grow: 1;
+}
+
+.call-details {
+  text-align: right;
+  min-width: 90px;
+}
+
+.priority-container {
+  display: flex;
+  align-items: center;
+  margin-left: 48px; /* 對齊 caller-info 開頭 */
+  margin-top: 4px;
+  gap: 4px;
 }
 
 .avatar {
@@ -279,11 +300,6 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-
-.status-icon {
-  width: 15px;
-  height: 15px;
 }
 
 .user-details {
@@ -358,5 +374,14 @@ onMounted(() => {
   .user-details {
     max-width: 150px;
   }
+}
+
+.dialable {
+  cursor: pointer;
+  color: #1e88e5;
+  text-decoration: underline;
+}
+.dialable:hover {
+  color: #0d47a1;
 }
 </style>

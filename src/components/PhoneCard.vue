@@ -1,11 +1,7 @@
 <template>
   <div class="call-history-page">
     <header class="call-header">
-      <img
-        :src="require('@/assets/icons/header-icon.svg')"
-        alt="Phone icon"
-        class="header-icon"
-      />
+      <img :src="require('@/assets/icons/header-icon.svg')" alt="Phone icon" class="header-icon" />
       <h1 class="header-title">通話記錄</h1>
     </header>
 
@@ -19,12 +15,17 @@
         aria-label="Search call records" 
         @focus="onFocus" 
         @blur="onBlur"
+        v-model="searchQuery"
       />
     </div>
 
     <!-- Call List -->
     <section class="call-list">
-      <article v-for="(entry, index) in callEntries" :key="index" class="call-entry">
+      <article
+        v-for="(entry, index) in filteredCallEntries"
+        :key="index"
+        class="call-entry"
+      >
         <div class="call-entry-container">
           <div class="user-info">
             <div class="avatar-container">
@@ -34,18 +35,18 @@
               </div>
             </div>
             <div class="user-details">
-              <h2 class="user-name">{{ entry.name }}</h2>
-              <p class="user-phone">{{ entry.phoneNumber }}</p>
+              <h2 class="user-name">{{ entry.name || '未知來電者' }}</h2>
+              <p class="user-phone">{{ entry.number }}</p>
             </div>
           </div>
           <div class="call-details">
-            <time class="call-date">{{ entry.date }}</time>
+            <time class="call-date">{{ formatDate(entry.date) }}</time>
             <div class="call-time-container">
-              <time class="call-time">{{ entry.time }}</time>
-              <img :src="getDirectionIcon(entry.isOutgoing)" class="direction-icon" />
+              <time class="call-time">{{ formatTime(entry.date) }}</time>
+              <img :src="getDirectionIcon(entry.type)" class="direction-icon" />
             </div>
             <div class="call-icon-container">
-              <img :src="getCallIcon(entry.isRed)" class="call-icon" />
+              <img :src="getCallIcon(entry.duration)" class="call-icon" />
             </div>
           </div>
         </div>
@@ -59,19 +60,52 @@ export default {
   name: 'CallHistoryPage',
   data() {
     return {
-      callEntries: [
-        { name: '王小明', phoneNumber: '0912-345-678', date: '10/24', time: '10:22', isOutgoing: true, isRed: true },
-        { name: '王小明', phoneNumber: '0912-345-678', priorityLabel: '有風險', date: '10/24', time: '10:22', isOutgoing: true, isRed: true },
-        { name: '王小明', phoneNumber: '0912-345-678', date: '10/24', time: '10:22', isOutgoing: false, isRed: false }
-      ]
+      callEntries: [],
+      searchQuery: ''
     };
   },
+  computed: {
+    filteredCallEntries() {
+      if (!this.searchQuery) return this.callEntries;
+      return this.callEntries.filter((e) =>
+        e.number?.includes(this.searchQuery)
+      );
+    }
+  },
+  mounted() {
+    // 建立接收通話資料的 JS interface
+    window.CallLogReceiver = {
+      receive: (data) => {
+        try {
+          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+          this.callEntries = parsed;
+        } catch (e) {
+          console.error('解析通話記錄失敗', e);
+        }
+      }
+    };
+
+    // 請求 Android 通話記錄
+    if (window.Android && window.Android.getCallLogs) {
+      window.Android.getCallLogs();
+    } else {
+      console.warn('Android 通話記錄橋接尚未就緒');
+    }
+  },
   methods: {
-    getDirectionIcon(isOutgoing) {
-      return require(`@/assets/icons/${isOutgoing ? 'arrow-outgoing' : 'arrow-incoming'}.svg`);
+    getDirectionIcon(type) {
+      return require(`@/assets/icons/${type === '撥出' ? 'arrow-outgoing' : 'arrow-incoming'}.svg`);
     },
-    getCallIcon(isRed) {
-      return require(`@/assets/icons/${isRed ? 'call-end' : 'call-received'}.svg`);
+    getCallIcon(duration) {
+      return require(`@/assets/icons/${duration === '0' ? 'call-end' : 'call-received'}.svg`);
+    },
+    formatDate(timestamp) {
+      const date = new Date(Number(timestamp));
+      return date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+    },
+    formatTime(timestamp) {
+      const date = new Date(Number(timestamp));
+      return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
     },
     onFocus(e) {
       e.target.placeholder = '';

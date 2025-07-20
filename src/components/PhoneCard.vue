@@ -32,7 +32,9 @@
 
           <!-- 中：聯絡人 -->
           <div class="caller-info">
-            <div class="caller-name">{{ entry.name || entry.number }}</div>
+            <!-- 聯絡人名稱：純文字不加連結 -->
+            <div class="caller-name">{{ entry.name || "未知來電" }}</div>
+            <!-- 號碼：只有這段可以點擊撥號 -->
             <div
               class="caller-number dialable"
               v-if="entry.name && entry.name !== entry.number"
@@ -40,6 +42,14 @@
             >
               {{ entry.number }}
             </div>
+            <!-- 若聯絡人名稱不存在，則點擊號碼本身 -->
+  <div
+    class="caller-name dialable"
+    v-if="!entry.name"
+    @click="dial(entry.number)"
+  >
+    {{ entry.number }}
+  </div>
           </div>
 
           <!-- 右：時間與通話圖示 -->

@@ -38,18 +38,18 @@ import AlertModal from '@/components/AlertModal.vue'
 
 const router = useRouter()
 
-// AlertModal 控制
+// ──────────────── AlertModal 控制 ────────────────
 const modalVisible = ref(false)
 const modalMessage = ref('')
-const pendingAction = ref(null) // 用來記住確認按鈕後要執行什麼動作
+const pendingAction = ref(null) // 紀錄用戶按下確認後要執行的動作（如 logout）
 
-// 個人資料
+// ──────────────── 個人資料狀態 ────────────────
 const isGuest = ref(false)
-const memberFields = ref([]) // 暱稱、帳號、Email、密碼
+const memberFields = ref([])
 const userId = ref(null)
 const tokenIssuedAt = ref(null)
 
-/* ──────────────── JWT 工具 ──────────────── */
+// ──────────────── JWT 工具 ────────────────
 const parseJwt = (token) => {
   try {
     const base64Url = token.split('.')[1]
@@ -60,10 +60,10 @@ const parseJwt = (token) => {
   }
 }
 
-/* ──────────────── AlertModal ──────────────── */
-const showAlert = (msg) => {
+// ──────────────── AlertModal 控制方法 ────────────────
+const showAlert = (msg, confirmToLogin = false) => {
   modalMessage.value = msg
-  pendingAction.value = null
+  pendingAction.value = confirmToLogin ? 'toLogin' : null
   modalVisible.value = true
 }
 
@@ -76,6 +76,8 @@ const confirmDialog = (msg, actionKey) => {
 const handleModalConfirm = async () => {
   if (pendingAction.value === 'logout') {
     await doLogout()
+  } else if (pendingAction.value === 'toLogin') {
+    router.push('/')
   }
   modalVisible.value = false
   pendingAction.value = null
@@ -86,24 +88,23 @@ const handleModalCancel = () => {
   pendingAction.value = null
 }
 
-/* ──────────────── 登出功能 ──────────────── */
+// ──────────────── 登出功能 ────────────────
 const askLogout = () => confirmDialog('確定要登出？', 'logout')
 
 const doLogout = async () => {
   try {
     const token = localStorage.getItem('userToken')
     const { data } = await axios.post('/api/MemberManagement/Logout', {}, {
-      headers: { Authorization: `Bearer ${token}` } 
+      headers: { Authorization: `Bearer ${token}` }
     })
 
     if (data.status === 'Success') {
       localStorage.removeItem('userToken')
-      localStorage.removeItem('userRole')      // 新增
+      localStorage.removeItem('userRole')
       localStorage.removeItem('userEmail')
       localStorage.removeItem('nickname')
       localStorage.removeItem('accountName')
-
-      router.push({ path: '/', query: { loggedOut: 'true' } }) // 修正導向
+      router.push({ path: '/', query: { loggedOut: 'true' } })
     } else {
       showAlert(data.message || '登出失敗')
     }
@@ -113,11 +114,11 @@ const doLogout = async () => {
   }
 }
 
-/* ──────────────── 取得個人資料 ──────────────── */
+// ──────────────── 取得會員資料 ────────────────
 const fetchProfile = async () => {
   const token = localStorage.getItem('userToken')
   if (!token) {
-    router.push('/login')
+    router.push('/')
     return
   }
 
@@ -127,13 +128,12 @@ const fetchProfile = async () => {
 
   try {
     const { data } = await axios.get('/api/MemberManagement/profile', {
-     headers: { Authorization: `Bearer ${token}` } 
-
+      headers: { Authorization: `Bearer ${token}` }
     })
 
     if (data.userStatus === 'Logout') {
       localStorage.removeItem('userToken')
-      router.push({ path: '/login', query: { loggedOut: 'true' } })
+      router.push({ path: '/', query: { loggedOut: 'true' } })
       return
     }
 
@@ -150,12 +150,12 @@ const fetchProfile = async () => {
     }
   } catch (err) {
     console.error('取得使用者資訊失敗', err)
-    showAlert('無法取得會員資料，請重新登入')
-    router.push('/login')
+    showAlert('無法取得會員資料，請重新登入', true)
+    router.push('/')
   }
 }
 
-/* ──────────────── 其他操作 ──────────────── */
+// ──────────────── 編輯與導頁 ────────────────
 function handleEdit(label) {
   if (label === '暱稱') router.push('/modify-nickname')
   else if (label === 'Email') router.push('/update-email')
@@ -164,17 +164,27 @@ function handleEdit(label) {
 
 const goToDeleteAccount = () => router.push('/delete-account')
 
-/* ──────────────── mounted ──────────────── */
+// ──────────────── 初始化驗證 ────────────────
 onMounted(() => {
-  fetchProfile()
+  const token = localStorage.getItem('userToken')
+  const role = localStorage.getItem('userRole')
 
+  // ✅ 驗證 Token 與角色是否合法
+  if (!token || role !== 'User') {
+    showAlert('請先登入', true)
+    return
+  }
+
+  // ✅ 處理 ?loggedOut=true 清除 query
   const query = router.currentRoute.value.query
-  if (query.updated === 'true') {
-    fetchProfile()
+  if (query.loggedOut === 'true') {
     router.replace({ query: {} })
   }
+
+  fetchProfile()
 })
 </script>
+
 
 
 <style scoped>

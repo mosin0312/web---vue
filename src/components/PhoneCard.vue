@@ -8,15 +8,8 @@
 
     <!-- Search -->
     <div class="search-container">
-      <img src="@/assets/icons/search-icon.svg" alt="search" class="search-icon" />
-      <input
-        type="text"
-        class="search-input"
-        placeholder="Search..."
-        v-model="searchQuery"
-        @focus="onFocus"
-        @blur="onBlur"
-      />
+      <img src="@/assets/icons/search-icon.svg" alt="search"  class="search-icon" />
+      <input type="text" class="search-input"  placeholder="Search..." maxlength="10" v-model="searchQuery" @keyup.enter="searchPhone"/>
     </div>
 
     <!-- Call List -->
@@ -77,7 +70,7 @@
       </div>
     </div>
 
-    <AlertModal :visible="showModal" :message="modalMessage" @close="showModal = false" />
+    <AlertModal :visible="showModal" :message="modalMessage" @confirm="handleModalClose" @close="showModal = false" />
   </div>
 </template>
 
@@ -85,17 +78,35 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import AlertModal from '@/components/AlertModal.vue'
+import { useRouter } from 'vue-router'
 
+
+
+const router = useRouter()
 const callEntries = ref([])
 const searchQuery = ref('')
 const riskMap = ref({})
 const showModal = ref(false)
 const modalMessage = ref('')
+const shouldRedirect = ref(false)
 
-function showAlert(message) {
+
+function showAlert(message, redirectToHome = false) {
   modalMessage.value = message
   showModal.value = true
+  shouldRedirect.value = redirectToHome
 }
+
+function handleModalClose() {
+  showModal.value = false
+  if (shouldRedirect.value) {
+    // 跳回首頁並清除 query 參數
+    router.push({ path: '/', query: {}, replace: true })
+    shouldRedirect.value = false
+  }
+}
+
+
 
 const filteredCallEntries = computed(() => {
   return callEntries.value
@@ -138,21 +149,77 @@ function dial(number) {
   }
 }
 
-function onFocus(e) {
-  e.target.placeholder = ''
-}
-function onBlur(e) {
-  if (!e.target.value) e.target.placeholder = 'Search...'
+async function searchPhone() {
+  const raw = searchQuery.value?.trim()
+  const phone = raw?.replace(/[^0-9]/g, '')
+  if (!phone) {
+    showAlert('請輸入要查詢的電話號碼')
+    return
+  }
+
+  const token = localStorage.getItem('userToken')
+if (!token) {
+  showAlert('請先登入才能查詢電話風險', true)
+  return
 }
 
+
+  try {
+    console.log('查詢電話:', phone)
+    const res = await axios.get(`/api/lookup/${phone}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    const results = res.data?.results || []
+    if (results.length === 0) {
+      showAlert('查無資料')
+      return
+    }
+
+    router.push({
+      path: '/search-phone',
+      query: {
+        phone,
+        reason: results[0].reason || '',
+        source: results[0].source || '未知'
+      }
+    })
+  } catch (err) {
+    console.error('查詢失敗:', err)
+    if (err.response) {
+      console.error('API 回傳錯誤:', err.response.data)
+      showAlert(err.response.data?.message || '查詢電話風險時發生錯誤')
+    } else {
+      showAlert('無法連線至伺服器')
+    }
+  }
+}
+
+
 onMounted(() => {
+  // ✅ 驗證 Token 與角色是否合法
+  const token = localStorage.getItem('userToken')
+  const role = localStorage.getItem('userRole')
+
+  if (!token || role !== 'User') {
+  showAlert('請先登入', true) //  只提示，等使用者按下「確定」再跳轉
+  return
+}
+
+  // ✅ 若 URL 中含有 loggedOut 參數，就清除 URL query
+  if (router.currentRoute.value.query.loggedOut === 'true') {
+    router.replace({ query: {} })
+  }
+
+  // ✅ Android 與 CallLogReceiver 初始化
   window.CallLogReceiver = {
     receive: async (data) => {
       try {
         const parsed = typeof data === 'string' ? JSON.parse(data) : data
         callEntries.value = parsed
 
-        const token = localStorage.getItem('userToken')
         for (const entry of parsed) {
           const phone = entry.number
           if (!phone) continue
@@ -180,6 +247,7 @@ onMounted(() => {
     console.warn('Android 通話記錄橋接尚未就緒')
   }
 })
+
 </script>
 
 

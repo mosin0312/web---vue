@@ -177,6 +177,7 @@ onMounted(() => {
 .call-history-page {
   width: 100%;
   height: 100vh;
+  font-family: 'Inter', sans-serif;
   background: linear-gradient(180deg, #ffebc3 0%, #fff 100%);
   display: flex;
   flex-direction: column;
@@ -194,16 +195,21 @@ onMounted(() => {
   align-items: center;
   gap: 7px;
   background-color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 10; /* 確保在其他區塊上層 */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 陰影區分層次 */
 }
 
 .header-icon {
   width: 39px;
-  height: 33px;
+  height: 39px;
 }
 
 .header-title {
   font-size: 20px;
   color: #000;
+  font-weight: 700;
   margin: 0;
 }
 

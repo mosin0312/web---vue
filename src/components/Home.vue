@@ -50,9 +50,9 @@
     <!-- News Section -->
     <section class="news-section">
       <div class="section-header">
-        <h2 class="section-title">更多相關資訊</h2>
+        <h2 class="section-title">相關資訊</h2>
         <div class="view-all" @click="goToAllNews">
-          查看全部
+          查看更多新聞
         </div>
       </div>
 
@@ -64,23 +64,12 @@
       <div class="news-description">{{ item.description }}</div>
       <div class="news-footer">
         <span class="news-date">{{ item.pubDate }}</span>
-        <span class="news-link" @click="goToNews(item)">查看詳細內容</span>
+        <span class="news-link" @click="goToNews(item)">查看內容</span>
       </div>
     </div>
   </div>
 </div>
     </section>
-   <!--測試跳轉用，之後刪掉 -->
-<button @click="goToMember" class="test-btn">
-  測試跳轉到 MemberManagementView.vue
-</button>
-<!--測試跳轉用，之後刪掉 -->
-
-  <!--測試跳轉用，之後刪掉 -->
-<button @click="goToPC" class="test-btn">
-  測試跳轉到 phoneCard.vue
-</button>
-<!--測試跳轉用，之後刪掉 -->
 
 <AlertModal
   v-if="showLoginModal"  message="請先登入會員才能使用此功能"  @close="showLoginModal = false"/>
@@ -93,27 +82,9 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import api from '@/api'
 import AlertModal from '@/components/AlertModal.vue'
 import { useRouter } from 'vue-router'
-import { isUserLoggedIn } from '@/router/useAuth.js'
 
 const router = useRouter()
 const showLoginModal = ref(false)
-
-// 會員功能導向檢查
-const goToMember = () => {
-  if (!isUserLoggedIn()) {
-    showLoginModal.value = true
-    return
-  }
-  router.push('/member-management')
-}
-
-const goToPC = () => {
-  if (!isUserLoggedIn()) {
-    showLoginModal.value = true
-    return
-  }
-  router.push('/phonecard')
-}
 
 // 輪播圖資料
 const carouselImages = [
@@ -191,7 +162,7 @@ const fetchNews = async () => {
     const url =
       role === 'User'
         ? '/api/MemberManagement/news'
-        : '/api/MemberManagement/grabnews'  // ✅ 訪客改用 grabnews
+        : '/api/MemberManagement/grabnews'  //  訪客用 grabnews
 
     const response = await api.get(url, {
       headers: { Authorization: `Bearer ${token}` }
@@ -256,7 +227,6 @@ onUnmounted(() => {
 .main-container {
   width: 100%;
   height: 100vh;
-  max-width: 100%;
   font-family: 'Inter', sans-serif;
   background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
   display: flex;
@@ -270,7 +240,7 @@ onUnmounted(() => {
 .header {
   display: flex;
   max-width: 100%;
-  padding: 8px 16px; /* 修改為與 main-container 一致的 padding */
+  padding: 8px 16px; 
   margin: 0 -16px; /* 抵消 main-container 的 padding 使 header 貼齊左右邊緣 */
   width: calc(100% + 32px); /* 讓 header 撐滿整個視圖 */
   justify-content: space-between; /*調整標題文字位置*/
@@ -282,7 +252,7 @@ onUnmounted(() => {
   position: sticky;
   top: 0;
   z-index: 10; /* 確保在其他區塊上層 */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 可加陰影區分層次 */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 陰影區分層次 */
   
 }
 
@@ -295,7 +265,7 @@ onUnmounted(() => {
 .page-title {
   color: #000;
   font-family: Inter, sans-serif;
-  font-size: 25px;
+  font-size: 20px;
   font-weight: 700;
   margin: 0;
 }
@@ -328,7 +298,7 @@ onUnmounted(() => {
 .notification-text {
   font-weight: 500;
   color: #888;
-  font-size: 14px;
+  font-size: 18px;
 }
 
 .carousel {
@@ -379,9 +349,9 @@ onUnmounted(() => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background-color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(255, 255, 255, 0.5);
   border: none;
-  font-size: 24px;
+  font-size: 25px;
   padding: 8px;
   cursor: pointer;
   z-index: 2;
@@ -462,10 +432,11 @@ onUnmounted(() => {
 }
 
 .news-image {
-  width: 100px;
-  height: 75px;
+  width: 90px;
+  height: 150px;
   border-radius: 6px;
   object-fit: cover;
+  align-items: center;
   flex-shrink: 0;
 }
 
@@ -475,13 +446,13 @@ onUnmounted(() => {
 }
 
 .news-title {
-  font-size: 25px;
+  font-size: 15px;
   font-weight: bold;
   margin-bottom: 4px;
 }
 
 .news-description {
-  font-size: 20px;
+  font-size: 15px;
   color: #555;
   margin-bottom: 6px;
 }
@@ -489,26 +460,14 @@ onUnmounted(() => {
 .news-footer {
   display: flex;
   justify-content: space-between;
-  font-size: 15px;
+  font-size: 12px;
   color: #888;
 }
 
 .news-link {
-  font-size: 20px;
+  font-size: 13px;
   color: #2053ed;
   cursor: pointer;
 }
-
-/**測試跳轉用，之後刪掉 */
-.test-btn {
-  margin-top: 20px;
-  padding: 10px 20px;
-  background-color: #007aff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-/**測試跳轉用，之後刪掉 */
 
 </style>

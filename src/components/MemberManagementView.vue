@@ -181,14 +181,14 @@ onMounted(() => {
 .main-container {
   width: 100%;
   height: 100vh;
-  max-width: 100%;
-  margin: 0 auto;
-  background: linear-gradient(180deg, #d4d7f9, #ffffff);
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 0 16px;
-  position: relative;
+  padding: 0 16px;
+  box-sizing: border-box;
+  position: relative; 
 }
 
 .title-member-data {
@@ -316,7 +316,7 @@ onMounted(() => {
 
 .option-blacklist {
   padding: 14px 28px;        
-  font-size: 20px;           
+  font-size: 15px;           
   border-radius: 40px;       
   background: #faf7d7;
   border: 2px solid #ffecbb;
@@ -326,7 +326,7 @@ onMounted(() => {
 
 .option-question {
   padding: 14px 28px;        
-  font-size: 20px;           
+  font-size: 15px;           
   border-radius: 40px;       
   background: #faf7d7;
   border: 2px solid #ffecbb;

@@ -8,9 +8,22 @@
 
     <!-- Search -->
     <div class="search-container">
-      <img src="@/assets/icons/search-icon.svg" alt="search"  class="search-icon" />
-      <input type="text" class="search-input"  placeholder="Search..." maxlength="10" v-model="searchQuery" @keyup.enter="searchPhone"/>
-    </div>
+  <img
+    src="@/assets/icons/search-icon.svg"
+    alt="search"
+    class="search-icon"
+    @click="searchPhone($event)"
+  />
+  <input
+    type="text"
+    class="search-input"
+    placeholder="Search..."
+    maxlength="10"
+    v-model="searchQuery"
+    @keyup.enter="searchPhone($event)"
+  />
+  <button class="search-button" @click="searchPhone($event)">查詢</button>
+</div>
 
     <!-- Call List -->
     <div class="call-list">
@@ -149,7 +162,9 @@ function dial(number) {
   }
 }
 
-async function searchPhone() {
+async function searchPhone(event) {
+  if (event?.preventDefault) event.preventDefault()
+
   const raw = searchQuery.value?.trim()
   const phone = raw?.replace(/[^0-9]/g, '')
   if (!phone) {
@@ -158,47 +173,48 @@ async function searchPhone() {
   }
 
   const token = localStorage.getItem('userToken')
-if (!token) {
-  showAlert('請先登入才能查詢電話風險', true)
-  return
-}
-
+  if (!token) {
+    showAlert('請先登入才能查詢電話風險', true)
+    return
+  }
 
   try {
-    console.log('查詢電話:', phone)
-    const res = await axios.get(`/api/lookup/${phone}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+    const res = await axios.get(`/api/MemberManagement/lookup/${phone}`, {
+      headers: { Authorization: `Bearer ${token}` }
     })
 
-    const results = res.data?.results || []
-    if (results.length === 0) {
+    const results = res.data?.results
+    if (!results || Object.keys(results).length === 0) {
       showAlert('查無資料')
       return
     }
 
+    const firstSource = results.phoneBook || results.whosNumber || results.tellows
+    const reason = firstSource?.reason || firstSource?.comment || firstSource?.callType || '無資料'
+    const source = results.phoneBook ? 'phoneBook'
+                 : results.whosNumber ? 'whosNumber'
+                 : results.tellows ? 'tellows' : '未知'
+
+    // ✅ Vue Router 內部跳轉（不會跳頁）
     router.push({
       path: '/search-phone',
       query: {
         phone,
-        reason: results[0].reason || '',
-        source: results[0].source || '未知'
+        reason,
+        source
       }
     })
   } catch (err) {
     console.error('查詢失敗:', err)
-    if (err.response) {
-      console.error('API 回傳錯誤:', err.response.data)
-      showAlert(err.response.data?.message || '查詢電話風險時發生錯誤')
-    } else {
-      showAlert('無法連線至伺服器')
-    }
+    showAlert('查詢電話風險時發生錯誤')
   }
 }
 
 
+
+
 onMounted(() => {
+  searchQuery.value = ''
   // ✅ 驗證 Token 與角色是否合法
   const token = localStorage.getItem('userToken')
   const role = localStorage.getItem('userRole')
@@ -215,31 +231,35 @@ onMounted(() => {
 
   // ✅ Android 與 CallLogReceiver 初始化
   window.CallLogReceiver = {
-    receive: async (data) => {
-      try {
-        const parsed = typeof data === 'string' ? JSON.parse(data) : data
-        callEntries.value = parsed
+  receive: async (data) => {
+    try {
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data
+      callEntries.value = parsed
 
-        for (const entry of parsed) {
-          const phone = entry.number
-          if (!phone) continue
-          try {
-            const res = await axios.get(`/api/lookup/${phone}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            })
-            if (res.data?.results?.length > 0) {
-              riskMap.value[phone] = res.data.results[0]
-            }
-          } catch (err) {
-            console.warn(`查詢 ${phone} 風險失敗`, err)
+      for (const entry of parsed) {
+        const phone = entry.number
+        if (!phone) continue
+
+        try {
+          const res = await axios.get(`/api/MemberManagement/lookup/${phone}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+
+          const results = res.data?.results
+          if (results) {
+            // 優先取 phoneBook，其次 whosNumber，再次 tellows
+            riskMap.value[phone] = results.phoneBook || results.whosNumber || results.tellows || {}
           }
+        } catch (err) {
+          console.warn(`查詢 ${phone} 風險失敗`, err)
         }
-      } catch (e) {
-        console.error('解析通話記錄失敗', e)
-        showAlert('無法載入通話記錄')
       }
+    } catch (e) {
+      console.error('解析通話記錄失敗', e)
+      showAlert('無法載入通話記錄')
     }
   }
+}
 
   if (window.Android && window.Android.getCallLogs) {
     window.Android.getCallLogs()

@@ -25,7 +25,7 @@ const routes = [
   { path: '/forget-password', component: ForgetPasswordView },
   { path:'/forget-account',component: ForgetAccountView},
   { path:'/reset-password',component: ResetPasswordView},
-  { path: '/newsletter',component: Newsletter},
+  { path: '/sms',component: Newsletter},
   { path: '/chat', component: ChatMessage },
   { path: '/preview', component: WebPreview },
   {path: '/screenshot',component:ScreenshotAnalysis},

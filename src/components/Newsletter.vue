@@ -13,21 +13,18 @@
       >
         一般簡訊
       </button>
-
       <button
         :class="['button-sms-category', selectedCategory === 'strange' ? 'active' : '']"
         @click="changeCategory('strange')"
       >
         陌生簡訊
       </button>
-
       <button
         :class="['button-sms-category', selectedCategory === 'screenshot' ? 'active' : '']"
         @click="changeCategory('screenshot')"
       >
         截圖分析
       </button>
-      
     </div>
 
     <!-- 簡訊列表 -->
@@ -74,72 +71,73 @@ import api from '@/api'
 const router = useRouter()
 const selectedCategory = ref('general')
 const readPhones = ref(JSON.parse(localStorage.getItem('readPhones') || '[]'))
+const smsList = ref([])
 
-const fallbackList = [
-  {
-    phone: '0961-592-560',
-    message: '用驗證碼於2025-04-03前至蝦皮淡水淡江-智取店領包裹...',
-    read: false,
-    date: '10/24',
-    badge: 1,
-    avatarUrl: require('@/assets/icons/avatar.svg'),
-    iconUrl: require('@/assets/icons/property-commercial.svg'),
-    risk: 'low',
-    riskText: '低',
-    category: 'general'
-  },
-  {
-    phone: '0900-123-456',
-    message: '您已中獎！請點選以下連結以領取獎金：https://fakeprize.com',
-    read: false,
-    date: '10/25',
-    badge: 1,
-    avatarUrl: require('@/assets/icons/avatar.svg'),
-    iconUrl: require('@/assets/icons/property-commercial.svg'),
-    risk: 'high',
-    riskText: '高',
-    category: 'strange'
-  },
-  {
-    phone: '0932-456-789',
-    message: '您的包裹即將到達，請保持電話暢通。如有問題請洽客服。',
-    read: false,
-    date: '10/26',
-    badge: 1,
-    avatarUrl: require('@/assets/icons/avatar.svg'),
-    iconUrl: require('@/assets/icons/property-private.svg'),
-    risk: 'medium',
-    riskText: '中',
-    category: 'general'
-  }
-]
+onMounted(() => {
+  const token = localStorage.getItem('token')
 
-const smsList = ref([...fallbackList])
+  window.addEventListener('sms-from-android', async (e) => {
+    const smsArray = e.detail
 
-onMounted(async () => {
-  try {
-    const token = localStorage.getItem('token')
-    const res = await api.get('/api/sms', {
-      headers: { Authorization: `Bearer ${token}` },
-      timeout: 3000
-    })
-    if (Array.isArray(res.data) && res.data.length > 0) {
-      smsList.value = res.data.map(sms => ({
-        ...sms,
-        category: sms.category || 'general'
-      }))
-    } else {
-      console.warn('格式錯誤或為空，保留 fallback')
-    }
-  } catch (e) {
-    console.warn('API 失敗，使用 fallback：', e.message)
-  }
+    const analyzedList = await Promise.all(
+      smsArray.map(async (sms) => {
+        try {
+          const res = await api.post(
+            '/api/MemberManagement/CheckRisk',
+            { message: sms.body },
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 3000
+            }
+          )
+
+          const data = res.data
+          return {
+            phone: sms.address,
+            message: sms.body,
+            date: new Date(Number(sms.date)).toLocaleDateString(),
+            avatarUrl: require('@/assets/icons/avatar.svg'),
+            iconUrl: require('@/assets/icons/property-user.svg'),
+            category: 'strange',
+            read: readPhones.value.includes(sms.address),
+            risk: convertRiskLevel(data.riskLevel),
+            riskText: data.riskLevel,
+            severity: data.severity
+          }
+        } catch (e) {
+          return {
+            phone: sms.address,
+            message: sms.body,
+            date: new Date(Number(sms.date)).toLocaleDateString(),
+            avatarUrl: require('@/assets/icons/avatar.svg'),
+            iconUrl: require('@/assets/icons/property-user.svg'),
+            category: 'strange',
+            read: readPhones.value.includes(sms.address),
+            risk: 'unknown',
+            riskText: '未知',
+            severity: '無法分析'
+          }
+        }
+      })
+    )
+
+    smsList.value = analyzedList
+  })
 })
+
+const convertRiskLevel = (riskLevel) => {
+  switch (riskLevel) {
+    case '高風險': return 'high'
+    case '中風險': return 'medium'
+    case '低風險': return 'low'
+    default: return 'unknown'
+  }
+}
 
 const changeCategory = (category) => {
   selectedCategory.value = category
   if (category === 'screenshot') {
-    router.push('/screenshot') 
+    router.push('/screenshot')
   }
 }
 
@@ -148,7 +146,7 @@ const getRiskIcon = (risk) => {
     case 'low': return require('@/assets/icons/risk-low.svg')
     case 'medium': return require('@/assets/icons/risk-medium.svg')
     case 'high': return require('@/assets/icons/risk-high.svg')
-    default: return ''
+    default: return require('@/assets/icons/risk-unknown.svg')
   }
 }
 
@@ -279,6 +277,11 @@ const markAsReadAndNavigate = (phone) => {
   color: #333;
   word-break: break-word;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .sms-right {
   text-align: right;

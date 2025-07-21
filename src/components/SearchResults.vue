@@ -1,23 +1,34 @@
 <template>
-  <div class="search-result-page">
-    <h1>查詢結果</h1>
-    <div class="result-box">
+  <div class="search-result-container">
+    <h2>查詢結果</h2>
+    <div v-if="phone">
       <p><strong>電話：</strong>{{ phone }}</p>
-      <p><strong>理由：</strong>{{ reason }}</p>
+      <p><strong>風險說明：</strong>{{ reason || '無說明' }}</p>
       <p><strong>資料來源：</strong>{{ source }}</p>
     </div>
-    <button @click="$router.back()">返回</button>
+    <div v-else>
+      <p>未提供查詢參數</p>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { useRoute } from 'vue-router'
+import { computed } from 'vue'
+
 const route = useRoute()
 
-const phone = route.query.phone || '無資料'
-const reason = route.query.reason || '無資料'
-const source = route.query.source || '無資料'
+const phone = computed(() => route.query.phone || '')
+const reason = computed(() => route.query.reason || '')
+const source = computed(() => route.query.source || '')
 </script>
+
+<style scoped>
+.search-result-container {
+  padding: 20px;
+}
+</style>
+
 
 <style scoped>
 .search-result-page {

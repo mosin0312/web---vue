@@ -22,7 +22,6 @@
     v-model="searchQuery"
     @keyup.enter="searchPhone($event)"
   />
-  <button class="search-button" @click="searchPhone($event)">查詢</button>
 </div>
 
     <!-- Call List -->
@@ -70,16 +69,6 @@
             </div>
           </div>
         </div>
-
-        <!-- 下層：風險圖示與信賴度 -->
-        <div v-if="riskMap[entry.number]" class="priority-container">
-          <img
-            :src="getRiskIcon(riskMap[entry.number]?.trustLevel)"
-            class="priority-icon"
-            alt="風險圖示"
-          />
-          <span class="priority-label">{{ riskMap[entry.number]?.trustLevel }}</span>
-        </div>
       </div>
     </div>
 
@@ -93,8 +82,6 @@ import axios from 'axios'
 import AlertModal from '@/components/AlertModal.vue'
 import { useRouter } from 'vue-router'
 
-
-
 const router = useRouter()
 const callEntries = ref([])
 const searchQuery = ref('')
@@ -102,7 +89,6 @@ const riskMap = ref({})
 const showModal = ref(false)
 const modalMessage = ref('')
 const shouldRedirect = ref(false)
-
 
 function showAlert(message, redirectToHome = false) {
   modalMessage.value = message
@@ -113,13 +99,11 @@ function showAlert(message, redirectToHome = false) {
 function handleModalClose() {
   showModal.value = false
   if (shouldRedirect.value) {
-    // 跳回首頁並清除 query 參數
+    // 跳回登入並清除 query 參數
     router.push({ path: '/', query: {}, replace: true })
     shouldRedirect.value = false
   }
 }
-
-
 
 const filteredCallEntries = computed(() => {
   return callEntries.value
@@ -147,13 +131,6 @@ function getCallIcon(duration) {
   return require(`@/assets/icons/${duration === '0' ? 'call-end' : 'call-received'}.svg`)
 }
 
-function getRiskIcon(trustLevel) {
-  if (trustLevel?.includes('高')) return require('@/assets/icons/risk-high.svg')
-  if (trustLevel?.includes('中')) return require('@/assets/icons/risk-medium.svg')
-  if (trustLevel?.includes('低')) return require('@/assets/icons/risk-low.svg')
-  return require('@/assets/icons/risk-unknown.svg')
-}
-
 function dial(number) {
   if (window.Android?.dialNumber) {
     window.Android.dialNumber(number)
@@ -179,7 +156,7 @@ async function searchPhone(event) {
   }
 
   try {
-    const res = await axios.get(`/api/MemberManagement/lookup/${phone}`, {
+    const res = await axios.get(`/api/MemberManagement/lookuptest/${phone}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
 
@@ -189,29 +166,26 @@ async function searchPhone(event) {
       return
     }
 
-    const firstSource = results.phoneBook || results.whosNumber || results.tellows
-    const reason = firstSource?.reason || firstSource?.comment || firstSource?.callType || '無資料'
-    const source = results.phoneBook ? 'phoneBook'
-                 : results.whosNumber ? 'whosNumber'
-                 : results.tellows ? 'tellows' : '未知'
+    const phoneBook = results.phoneBook || {}
+    const whosNumber = results.whosNumber || {}
+    const tellows = results.tellows || {}
 
-    // ✅ Vue Router 內部跳轉（不會跳頁）
-    router.push({
-      path: '/search-phone',
-      query: {
-        phone,
-        reason,
-        source
-      }
-    })
+    // ✅ 使用 sessionStorage 儲存完整資料
+    sessionStorage.setItem('searchData', JSON.stringify({
+      phone,
+      phoneBook,
+      whosNumber,
+      tellows
+    }))
+
+    // ✅ 只導向路由，不帶複雜 query
+    router.push({ path: '/search-phone' })
+
   } catch (err) {
     console.error('查詢失敗:', err)
     showAlert('查詢電話風險時發生錯誤')
   }
 }
-
-
-
 
 onMounted(() => {
   searchQuery.value = ''
@@ -220,9 +194,9 @@ onMounted(() => {
   const role = localStorage.getItem('userRole')
 
   if (!token || role !== 'User') {
-  showAlert('請先登入', true) //  只提示，等使用者按下「確定」再跳轉
-  return
-}
+    showAlert('請先登入', true) // 只提示，等使用者按下「確定」再跳轉
+    return
+  }
 
   // ✅ 若 URL 中含有 loggedOut 參數，就清除 URL query
   if (router.currentRoute.value.query.loggedOut === 'true') {
@@ -231,35 +205,35 @@ onMounted(() => {
 
   // ✅ Android 與 CallLogReceiver 初始化
   window.CallLogReceiver = {
-  receive: async (data) => {
-    try {
-      const parsed = typeof data === 'string' ? JSON.parse(data) : data
-      callEntries.value = parsed
+    receive: async (data) => {
+      try {
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data
+        callEntries.value = parsed
 
-      for (const entry of parsed) {
-        const phone = entry.number
-        if (!phone) continue
+        for (const entry of parsed) {
+          const phone = entry.number
+          if (!phone) continue
 
-        try {
-          const res = await axios.get(`/api/MemberManagement/lookup/${phone}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
+          try {
+            const res = await axios.get(`/api/MemberManagement/lookuptest/${phone}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            })
 
-          const results = res.data?.results
-          if (results) {
-            // 優先取 phoneBook，其次 whosNumber，再次 tellows
-            riskMap.value[phone] = results.phoneBook || results.whosNumber || results.tellows || {}
+            const results = res.data?.results
+            if (results) {
+              // 優先取 phoneBook，其次 whosNumber，再次 tellows
+              riskMap.value[phone] = results.phoneBook || results.whosNumber || results.tellows || {}
+            }
+          } catch (err) {
+            console.warn(`查詢 ${phone} 風險失敗`, err)
           }
-        } catch (err) {
-          console.warn(`查詢 ${phone} 風險失敗`, err)
         }
+      } catch (e) {
+        console.error('解析通話記錄失敗', e)
+        showAlert('無法載入通話記錄')
       }
-    } catch (e) {
-      console.error('解析通話記錄失敗', e)
-      showAlert('無法載入通話記錄')
     }
   }
-}
 
   if (window.Android && window.Android.getCallLogs) {
     window.Android.getCallLogs()
@@ -267,8 +241,10 @@ onMounted(() => {
     console.warn('Android 通話記錄橋接尚未就緒')
   }
 })
-
 </script>
+
+
+
 
 
 <style scoped>

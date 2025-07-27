@@ -50,66 +50,152 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 
 const router = useRouter()
 const selectedCategory = ref('general')
-
-// ✅ 所有簡訊資料與聯絡人
-const smsList = ref(JSON.parse(localStorage.getItem('smsList') || '[]'))
+const smsList = ref([])
 const contacts = ref([])
+let syncInterval = null
 
-// ✅ 手機號碼格式統一
-const normalizePhone = (phone) =>
-  phone?.replace(/\D/g, '').replace(/^886/, '0')
+const normalizePhone = (phone) => {
+  if (!phone) return ''
+  // 若是中文或非數字開頭，直接回傳原值（表示是聯絡人名稱）
+  if (!/^[\d+]/.test(phone)) return phone
+  return phone.replace(/\s|-|\+/g, '').replace(/^886/, '0')
+}
 
-// ✅ 每封簡訊唯一 key（目前已不再使用，但保留可擴充）
-// const generateMessageKey = (sms) =>
-//   `${normalizePhone(sms.phone)}|${sms.message}|${sms.date}`
-
-// ✅ 處理 Android 傳來的聯絡人
-window.addEventListener('contacts-from-android', (e) => {
-  contacts.value = e.detail.map(c => ({
-    name: c.name,
-    phone: normalizePhone(c.phone)
-  }))
-})
 
 const contactMap = computed(() => {
   const map = new Map()
-  for (const contact of contacts.value) {
-    const normalized = normalizePhone(contact.phone)
-    if (normalized) {
-      map.set(normalized, contact.name)
-    }
+  for (const c of contacts.value) {
+    const phone = normalizePhone(c.phone)
+    if (phone) map.set(phone, c.name)
   }
   return map
 })
 
-// ✅ 分類後的簡訊列表（每號碼只顯示最新簡訊，並統計未讀數量）
+const updateDisplayNames = () => {
+  smsList.value = smsList.value.map(sms => ({
+    ...sms,
+    displayName: contactMap.value.get(normalizePhone(sms.phone)) || normalizePhone(sms.phone)
+  }))
+}
+
+const dispatchSmsProcessing = async (smsArray) => {
+  const token = localStorage.getItem('token')
+  const existing = smsList.value.map(s => `${s.phone}-${s.date}`)
+
+  const analyzedList = await Promise.all(
+    smsArray.map(async (sms) => {
+      const phone = normalizePhone(sms.address)
+      const isContact = contactMap.value.has(phone)
+      const smsKey = `${phone}-${new Date(Number(sms.date)).toISOString()}`
+      if (existing.includes(smsKey)) return null  // ✅ 避免重複處理相同訊息
+
+      try {
+        const res = await api.post(
+          '/api/MemberManagement/CheckRisk',
+          { message: sms.body },
+          { headers: { Authorization: `Bearer ${token}` }, timeout: 3000 }
+        )
+        const data = res.data
+        return {
+          phone,
+          message: sms.body,
+          date: new Date(Number(sms.date)).toISOString(),
+          read: sms.read,
+          avatarUrl: require('@/assets/icons/avatar.svg'),
+          category: isContact ? 'general' : 'strange',
+          risk: convertRiskLevel(data.riskLevel),
+          riskText: data.riskLevel,
+          severity: data.severity,
+          riskScore: data.riskScore,
+          matchedKeywords: data.matchedKeywords || [],
+          matchedScamUrls: data.matchedScamUrls || []
+        }
+      } catch {
+        return {
+          phone,
+          message: sms.body,
+          date: new Date(Number(sms.date)).toISOString(),
+          read: sms.read,
+          avatarUrl: require('@/assets/icons/avatar.svg'),
+          category: isContact ? 'general' : 'strange',
+          risk: 'unknown',
+          riskText: '未知',
+          severity: '無法分析',
+          riskScore: -1,
+          matchedKeywords: [],
+          matchedScamUrls: []
+        }
+      }
+    })
+  )
+
+  // ✅ 新增非 null 且不重複的項目
+  const filteredNewList = analyzedList.filter(s => s !== null)
+  smsList.value = [...smsList.value, ...filteredNewList]
+
+  updateDisplayNames()
+  localStorage.setItem('smsList', JSON.stringify(smsList.value))
+}
+
+const convertRiskLevel = (riskLevel) => {
+  switch (riskLevel) {
+    case '高風險': return 'high'
+    case '中風險': return 'medium'
+    case '低風險': return 'low'
+    default: return 'unknown'
+  }
+}
+
+const getRiskIcon = (risk) => {
+  switch (risk) {
+    case 'low': return require('@/assets/icons/risk-low.svg')
+    case 'medium': return require('@/assets/icons/risk-medium.svg')
+    case 'high': return require('@/assets/icons/risk-high.svg')
+    default: return require('@/assets/icons/risk-unknown.svg')
+  }
+}
+
+const formatDate = (iso) => {
+  const d = new Date(iso)
+  return d.toLocaleDateString() + '\n' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+const changeCategory = (category) => {
+  selectedCategory.value = category
+  if (category === 'screenshot') {
+    router.push('/screenshot')
+  }
+}
+
+const markAsReadAndNavigate = (phone) => {
+  const normalized = normalizePhone(phone)
+  router.push(`/chat?phone=${normalized}`)
+}
+
 const filteredSmsList = computed(() => {
   const map = new Map()
 
   for (const sms of smsList.value) {
     if (sms.category !== selectedCategory.value) continue
 
-    const normalized = normalizePhone(sms.phone)
-    const contactName = contactMap.value.get(normalized)
+    const normalized = normalizePhone(sms.phone || 'unknown')
     const current = map.get(normalized)
 
-    // 若還未放入，或這封簡訊比較新，更新為最新簡訊
     if (!current || new Date(sms.date) > new Date(current.date)) {
       map.set(normalized, {
         ...sms,
         phone: normalized,
-        readCount: 0,
-        displayName: contactName || normalized
+        displayName: contactMap.value.get(normalized) || normalized,
+        readCount: 0
       })
     }
 
-    // 統計未讀
     if (sms.read === 0) {
       const updated = map.get(normalized)
       updated.readCount = (updated.readCount || 0) + 1
@@ -120,104 +206,58 @@ const filteredSmsList = computed(() => {
   return Array.from(map.values())
 })
 
+let receivedContacts = false
+let receivedSms = false
+let latestSmsJson = null
 
-// ✅ 掛載時接收簡訊與風險分析
 onMounted(() => {
-  const token = localStorage.getItem('token')
+  const cached = localStorage.getItem('smsList')
+  if (cached) {
+    smsList.value = JSON.parse(cached)
+    updateDisplayNames()
+  }
 
-  window.addEventListener('sms-from-android', async (e) => {
-    const smsArray = e.detail
+  // 第一次請求資料
+  setTimeout(() => {
+    window.Android?.getSmsInbox?.()
+    window.Android?.getContacts?.()
+  }, 1000)
 
-    const analyzedList = await Promise.all(
-  smsArray.map(async (sms) => {
-    const phone = normalizePhone(sms.address)
-    const isContact = contactMap.value.has(phone)
-
-    try {
-      const res = await api.post(
-        '/api/MemberManagement/CheckRisk',
-        { message: sms.body },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 3000
-        }
-      )
-
-      const data = res.data
-      return {
-        phone,
-        message: sms.body,
-        date: new Date(Number(sms.date)).toISOString(),
-        read: sms.read,
-        avatarUrl: require('@/assets/icons/avatar.svg'),
-        category: isContact ? 'general' : 'strange',
-        risk: convertRiskLevel(data.riskLevel),
-        riskText: data.riskLevel,
-        severity: data.severity
-      }
-    } catch {
-      return {
-        phone,
-        message: sms.body,
-        date: new Date(Number(sms.date)).toISOString(),
-        read: sms.read,
-        avatarUrl: require('@/assets/icons/avatar.svg'),
-        category: isContact ? 'general' : 'strange',
-        risk: 'unknown',
-        riskText: '未知',
-        severity: '無法分析'
-      }
-    }
-  })
-)
-
-    smsList.value = analyzedList
-    localStorage.setItem('smsList', JSON.stringify(analyzedList))
-  })
+  // 每 5 秒同步資料
+  syncInterval = setInterval(() => {
+    window.Android?.getSmsInbox?.()
+    window.Android?.getContacts?.()
+  }, 5000)
 })
 
-// ✅ 風險等級轉換
-const convertRiskLevel = (riskLevel) => {
-  switch (riskLevel) {
-    case '高風險': return 'high'
-    case '中風險': return 'medium'
-    case '低風險': return 'low'
-    default: return 'unknown'
+
+onBeforeUnmount(() => {
+  if (syncInterval) clearInterval(syncInterval)
+})
+
+// ✅ 接收聯絡人事件
+window.addEventListener('contacts-from-android', (e) => {
+  contacts.value = e.detail.map(c => ({
+    name: c.name,
+    phone: normalizePhone(c.phone)
+  }))
+  receivedContacts = true
+
+  if (receivedSms && latestSmsJson) {
+    dispatchSmsProcessing(latestSmsJson)
   }
-}
+})
 
-// ✅ 風險圖示
-const getRiskIcon = (risk) => {
-  switch (risk) {
-    case 'low': return require('@/assets/icons/risk-low.svg')
-    case 'medium': return require('@/assets/icons/risk-medium.svg')
-    case 'high': return require('@/assets/icons/risk-high.svg')
-    default: return require('@/assets/icons/risk-unknown.svg')
+// ✅ 接收簡訊事件
+window.addEventListener('sms-from-android', (e) => {
+  latestSmsJson = e.detail
+  receivedSms = true
+
+  if (receivedContacts) {
+    dispatchSmsProcessing(latestSmsJson)
   }
-}
-
-// ✅ 顯示時間
-const formatDate = (iso) => {
-  const d = new Date(iso)
-  return d.toLocaleDateString() + '\n' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-// ✅ 類別切換
-const changeCategory = (category) => {
-  selectedCategory.value = category
-  if (category === 'screenshot') {
-    router.push('/screenshot')
-  }
-}
-
-// ✅ 點進對話頁，直接跳轉（不再標記已讀）
-const markAsReadAndNavigate = (phone) => {
-  const normalized = normalizePhone(phone)
-  router.push(`/chat?phone=${normalized}`)
-}
+})
 </script>
-
-
 
 <style scoped>
 .main-container {

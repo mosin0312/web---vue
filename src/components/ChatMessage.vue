@@ -2,10 +2,10 @@
   <div class="main-container">
     <!-- Header -->
     <div class="header">
-      <img class="logo" src="@/assets/icons/comeback.svg" alt="logo" @click="goBack"/>
+      <img class="logo" src="@/assets/icons/comeback.svg" alt="logo" @click="goBack" />
       <div class="header-info">
-        <span class="sender-name">台灣大哥大</span>
-        <span class="sender-number">0912-345-678</span>
+        <span class="sender-name">{{ displayName }}</span>
+        <span class="sender-number">{{ phone }}</span>
       </div>
     </div>
 
@@ -18,13 +18,8 @@
         :class="msg.position"
       >
         <div v-if="msg.image" class="message-image-wrapper">
-          <img
-            :src="msg.image"
-            class="message-image"
-            alt="圖片訊息"
-            @click="openImage(msg.image)"
-          />
-        </div>
+          <img :src="msg.image" class="message-image" alt="圖片訊息" @click="openImage(msg.image)" />
+        </div>  
 
         <div v-if="msg.text" class="message-bubble" @contextmenu.prevent="copyText(msg.text)">
           <p class="message-text">
@@ -34,6 +29,11 @@
               <a class="message-link" :href="msg.link" target="_blank">{{ msg.link }}</a>
             </template>
           </p>
+        </div>
+
+        <div class="match-info" v-if="msg.matchedKeywords.length || msg.matchedScamUrls.length">
+          <span v-if="msg.matchedKeywords.length">關鍵字：{{ msg.matchedKeywords.join(', ') }}</span><br />
+          <span v-if="msg.matchedScamUrls.length">詐騙網址：{{ msg.matchedScamUrls.join(', ') }}</span>
         </div>
 
         <div class="info-row">
@@ -55,37 +55,19 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
-import { useRouter } from 'vue-router'
-
+const route = useRoute()
 const router = useRouter()
-
-const goBack = () => {
-  router.push('/newsletter') // ← 確保你已在 router 中註冊對應路徑
-}
-
+const phone = ref(route.query.phone || ' ')
+const displayName = ref(route.query.name || ' ') //  從 query 拿到發送者名稱
+const messages = ref([])
 const showModal = ref(false)
 const previewImg = ref(null)
-const messages = ref([
-  {
-    position: 'left',
-    text: '【一起看更精彩】月付500元擁有三大影音串流平台，想看的類型全收錄，訂月再送KKBOX3個月，一起享受!',
-    link: 'https://twm5g.co/af1D',
-    image: '',
-    time: '2025/04/17 17:50',
-    risk: 'high',
-    riskText: '詐騙疑慮'
-  },
-  {
-    position: 'right',
-    text: '',
-    link: '',
-    image: require('@/assets/icons/pic.svg'),
-    time: '2025/04/17 17:51',
-    risk: 'low',
-    riskText: '安全'
-  }
-])
+
+const goBack = () => {
+  router.go(-1)
+}
 
 const openImage = (src) => {
   previewImg.value = src
@@ -94,16 +76,13 @@ const openImage = (src) => {
 const closeModal = () => {
   showModal.value = false
 }
+
 const getRiskIcon = (risk) => {
   switch (risk) {
-    case 'low':
-      return new URL('@/assets/icons/risk-low.svg', import.meta.url).href
-    case 'medium':
-      return new URL('@/assets/icons/risk-medium.svg', import.meta.url).href
-    case 'high':
-      return new URL('@/assets/icons/risk-high.svg', import.meta.url).href
-    default:
-      return ''
+    case 'low': return new URL('@/assets/icons/risk-low.svg', import.meta.url).href
+    case 'medium': return new URL('@/assets/icons/risk-medium.svg', import.meta.url).href
+    case 'high': return new URL('@/assets/icons/risk-high.svg', import.meta.url).href
+    default: return new URL('@/assets/icons/risk-unknown.svg', import.meta.url).href
   }
 }
 
@@ -113,97 +92,124 @@ const copyText = (text) => {
     .catch(() => alert('複製失敗'))
 }
 
-// 自動呼叫 API 標記風險
-onMounted(async () => {
-  const token = 'your_token_here' //之後補上
-  for (const msg of messages.value) {
-    if (msg.text) {
-      try {
-        const response = await fetch('http://localhost:5000/api/detect', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ sentence: msg.text })
-        })
-        const data = await response.json()
-        msg.risk = data.risk || 'low'
-        msg.riskText =
-          data.risk === 'high' ? '詐騙疑慮' : data.risk === 'medium' ? '需留意' : '安全'
-      } catch (error) {
-        console.error('API 錯誤：', error)
-      }
-    }
+const convertRisk = (level) => {
+  switch (level) {
+    case '高風險': return 'high'
+    case '中風險': return 'medium'
+    case '低風險': return 'low'
+    default: return 'unknown'
   }
+}
+
+const extractLink = (text) => {
+  const match = text.match(/https?:\/\/[\w.-]+(?:\/\S*)?/)
+  return match ? match[0] : ''
+}
+
+onMounted(() => {
+  const token = localStorage.getItem('token')
+  const normalizePhone = (p) => p?.replace(/\D/g, '').replace(/^886/, '0')
+  const targetPhone = normalizePhone(phone.value)
+
+  window.addEventListener('sms-from-android', async (e) => {
+    const allSms = e.detail || []
+    const filtered = allSms.filter(sms => normalizePhone(sms.address) === targetPhone)
+
+    messages.value = await Promise.all(
+      filtered.map(async sms => {
+        let risk = 'unknown'
+        let riskText = '未知'
+        let matchedKeywords = []
+        let matchedScamUrls = []
+
+        try {
+          const response = await fetch('/api/MemberManagement/CheckRisk', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ message: sms.body })
+          })
+          const data = await response.json()
+          risk = convertRisk(data.riskLevel)
+          riskText = data.riskLevel
+          matchedKeywords = data.matchedKeywords || []
+          matchedScamUrls = data.matchedScamUrls || []
+        } catch (e) {
+          console.warn('CheckRisk 失敗', e)
+        }
+
+        return {
+          position: 'left',
+          text: sms.body,
+          link: extractLink(sms.body),
+          image: sms.image || '',  // ✅ 本機 base64 圖片
+          time: new Date(Number(sms.date)).toLocaleString(),
+          risk,
+          riskText,
+          matchedKeywords,
+          matchedScamUrls
+        }
+      })
+    )
+  })
 })
+
+
 </script>
 
 <style scoped>
 .main-container {
   width: 100%;
   height: 100vh;
-  max-width: 100%;
-  margin: 0 auto;
   background: linear-gradient(to bottom, #dcf5ff, #ffffff);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding-bottom: 20px;
 }
-
 .header {
+  background: #fff;
   display: flex;
   align-items: center;
+  padding: 10px 16px;
   gap: 10px;
-  padding: 12px;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
-
 .logo {
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
 }
-
 .header-info {
   display: flex;
   flex-direction: column;
 }
-
 .sender-name {
   font-weight: bold;
-  font-size: 14px;
+  font-size: 18px;
 }
-
 .sender-number {
-  font-size: 12px;
+  font-size: 15px;
   color: #888;
 }
-
 .message-list {
   display: flex;
   flex-direction: column;
   padding: 16px 12px;
   gap: 24px;
 }
-
 .message-item {
   display: flex;
   flex-direction: column;
   max-width: 280px;
 }
-
 .left {
   align-self: flex-start;
   text-align: left;
 }
-
 .right {
   align-self: flex-end;
   text-align: right;
 }
-
 .message-bubble {
   background: white;
   border-radius: 20px;
@@ -212,20 +218,16 @@ onMounted(async () => {
   max-width: 100%;
   cursor: pointer;
 }
-
 .message-text {
   font-size: 14px;
   line-height: 1.5;
-  margin-bottom: 6px;
   white-space: pre-wrap;
 }
-
 .message-link {
   color: #007aff;
   text-decoration: underline;
   font-size: 14px;
 }
-
 .message-image {
   width: 160px;
   border-radius: 12px;
@@ -234,7 +236,6 @@ onMounted(async () => {
   margin-bottom: 4px;
   cursor: pointer;
 }
-
 .info-row {
   display: flex;
   justify-content: flex-end;
@@ -242,28 +243,29 @@ onMounted(async () => {
   gap: 8px;
   margin-top: 4px;
 }
-
 .message-time {
   font-size: 10px;
   color: #999;
 }
-
 .message-meta {
   display: flex;
   align-items: center;
   gap: 4px;
 }
-
 .risk-icon {
   width: 16px;
   height: 16px;
 }
-
 .risk-reason {
   font-size: 12px;
   color: #333;
 }
-
+.match-info {
+  font-size: 12px;
+  color: #555;
+  margin-top: 6px;
+  line-height: 1.4;
+}
 .modal-backdrop {
   position: fixed;
   top: 0;
@@ -276,18 +278,10 @@ onMounted(async () => {
   align-items: center;
   z-index: 999;
 }
-
 .modal-image {
   max-width: 90%;
   max-height: 90%;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   background: white;
-}
-
-.logo {
-  width: 28px;
-  height: 28px;
-  cursor: pointer; /* 顯示手指游標 */
 }
 </style>

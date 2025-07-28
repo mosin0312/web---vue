@@ -18,7 +18,7 @@
         :class="msg.position"
       >
         <div v-if="msg.image" class="message-image-wrapper">
-          <img :src="msg.image" class="message-image" alt="圖片訊息" @click="openImage(msg.image)" />
+          <img :src="msg.image" loading="lazy" class="message-image" alt="" @click="openImage(msg.image)" />
         </div>  
 
         <div v-if="msg.text" class="message-bubble" @contextmenu.prevent="copyText(msg.text)">
@@ -60,22 +60,17 @@ import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 const phone = ref(route.query.phone || ' ')
-const displayName = ref(route.query.name || ' ') //  從 query 拿到發送者名稱
+const displayName = ref(route.query.name || ' ')
 const messages = ref([])
 const showModal = ref(false)
 const previewImg = ref(null)
 
-const goBack = () => {
-  router.go(-1)
-}
-
+const goBack = () => router.go(-1)
 const openImage = (src) => {
   previewImg.value = src
   showModal.value = true
 }
-const closeModal = () => {
-  showModal.value = false
-}
+const closeModal = () => showModal.value = false
 
 const getRiskIcon = (risk) => {
   switch (risk) {
@@ -106,58 +101,77 @@ const extractLink = (text) => {
   return match ? match[0] : ''
 }
 
-onMounted(() => {
+const normalizePhone = (phone) =>
+  phone?.replace(/\D/g, '').replace(/^886/, '0')
+
+const analyzeMessages = async (smsArray) => {
   const token = localStorage.getItem('token')
-  const normalizePhone = (p) => p?.replace(/\D/g, '').replace(/^886/, '0')
   const targetPhone = normalizePhone(phone.value)
 
-  window.addEventListener('sms-from-android', async (e) => {
-    const allSms = e.detail || []
-    const filtered = allSms.filter(sms => normalizePhone(sms.address) === targetPhone)
+ const filtered = smsArray.filter(sms =>
+  normalizePhone(sms.address) === targetPhone &&
+  (sms.body || sms.image)
+)
 
-    messages.value = await Promise.all(
-      filtered.map(async sms => {
-        let risk = 'unknown'
-        let riskText = '未知'
-        let matchedKeywords = []
-        let matchedScamUrls = []
 
-        try {
-          const response = await fetch('/api/MemberManagement/CheckRisk', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ message: sms.body })
-          })
-          const data = await response.json()
-          risk = convertRisk(data.riskLevel)
-          riskText = data.riskLevel
-          matchedKeywords = data.matchedKeywords || []
-          matchedScamUrls = data.matchedScamUrls || []
-        } catch (e) {
-          console.warn('CheckRisk 失敗', e)
-        }
+  const analyzed = await Promise.all(filtered.map(async sms => {
+    let risk = 'unknown'
+    let riskText = '未知'
+    let matchedKeywords = []
+    let matchedScamUrls = []
 
-        return {
-          position: 'left',
-          text: sms.body,
-          link: extractLink(sms.body),
-          image: sms.image || '',  // ✅ 本機 base64 圖片
-          time: new Date(Number(sms.date)).toLocaleString(),
-          risk,
-          riskText,
-          matchedKeywords,
-          matchedScamUrls
-        }
+    try {
+      const response = await fetch('/api/MemberManagement/CheckRisk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ message: sms.body })
       })
-    )
-  })
+      const data = await response.json()
+      risk = convertRisk(data.riskLevel)
+      riskText = data.riskLevel
+      matchedKeywords = data.matchedKeywords || []
+      matchedScamUrls = data.matchedScamUrls || []
+    } catch (e) {
+      console.warn('CheckRisk 失敗', e)
+    }
+
+    return {
+      position: 'left',
+      text: sms.body,
+      link: extractLink(sms.body),
+      image: sms.image || '',
+      time: new Date(Number(sms.date)).toLocaleString(),
+      risk,
+      riskText,
+      matchedKeywords,
+      matchedScamUrls
+    }
+  }))
+
+  // 避免重複加入
+  const existingKeys = new Set(messages.value.map(
+    m => `${m.text}-${m.time}-${m.image?.length || 0}`
+  ))
+  const uniqueNew = analyzed.filter(m =>
+    !existingKeys.has(`${m.text}-${m.time}-${m.image?.length || 0}`)
+  )
+
+  messages.value = [...messages.value, ...uniqueNew].sort((a, b) => new Date(a.time) - new Date(b.time))//最新訊息在最下方
+
+
+}
+
+onMounted(() => {
+  // 監聽三種事件來源
+  window.addEventListener('sms-from-android', (e) => analyzeMessages(e.detail || []))
+  window.addEventListener('sms-from-notification', (e) => analyzeMessages(e.detail || []))
+  window.addEventListener('mms-from-android', (e) => analyzeMessages(e.detail || []))
 })
-
-
 </script>
+
 
 <style scoped>
 .main-container {

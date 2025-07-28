@@ -62,11 +62,9 @@ let syncInterval = null
 
 const normalizePhone = (phone) => {
   if (!phone) return ''
-  // 若是中文或非數字開頭，直接回傳原值（表示是聯絡人名稱）
   if (!/^[\d+]/.test(phone)) return phone
   return phone.replace(/\s|-|\+/g, '').replace(/^886/, '0')
 }
-
 
 const contactMap = computed(() => {
   const map = new Map()
@@ -86,14 +84,14 @@ const updateDisplayNames = () => {
 
 const dispatchSmsProcessing = async (smsArray) => {
   const token = localStorage.getItem('token')
-  const existing = smsList.value.map(s => `${s.phone}-${s.date}`)
+  const existing = smsList.value.map(s => `${s.phone}-${s.date}-${s.message?.substring(0, 20)}-${s.image?.length || 0}`)
 
   const analyzedList = await Promise.all(
     smsArray.map(async (sms) => {
       const phone = normalizePhone(sms.address)
       const isContact = contactMap.value.has(phone)
-      const smsKey = `${phone}-${new Date(Number(sms.date)).toISOString()}`
-      if (existing.includes(smsKey)) return null  // ✅ 避免重複處理相同訊息
+      const smsKey = `${phone}-${new Date(Number(sms.date)).toISOString()}-${sms.body?.substring(0, 20)}-${sms.image?.length || 0}`
+      if (existing.includes(smsKey)) return null
 
       try {
         const res = await api.post(
@@ -107,6 +105,7 @@ const dispatchSmsProcessing = async (smsArray) => {
           message: sms.body,
           date: new Date(Number(sms.date)).toISOString(),
           read: sms.read,
+          image: sms.image || '',
           avatarUrl: require('@/assets/icons/avatar.svg'),
           category: isContact ? 'general' : 'strange',
           risk: convertRiskLevel(data.riskLevel),
@@ -122,6 +121,7 @@ const dispatchSmsProcessing = async (smsArray) => {
           message: sms.body,
           date: new Date(Number(sms.date)).toISOString(),
           read: sms.read,
+          image: sms.image || '',
           avatarUrl: require('@/assets/icons/avatar.svg'),
           category: isContact ? 'general' : 'strange',
           risk: 'unknown',
@@ -136,11 +136,18 @@ const dispatchSmsProcessing = async (smsArray) => {
   )
 
   // ✅ 新增非 null 且不重複的項目
-  const filteredNewList = analyzedList.filter(s => s !== null)
-  smsList.value = [...smsList.value, ...filteredNewList]
+const filteredNewList = analyzedList.filter(s => s !== null)
+smsList.value = [...smsList.value, ...filteredNewList]
 
-  updateDisplayNames()
-  localStorage.setItem('smsList', JSON.stringify(smsList.value))
+updateDisplayNames()
+
+// ✅ 儲存時排除 image 欄位避免 exceed quota
+const smsToStore = smsList.value.map(sms => {
+  const { image, ...rest } = sms
+  return rest
+})
+localStorage.setItem('smsList', JSON.stringify(smsToStore))
+
 }
 
 const convertRiskLevel = (riskLevel) => {
@@ -168,9 +175,7 @@ const formatDate = (iso) => {
 
 const changeCategory = (category) => {
   selectedCategory.value = category
-  if (category === 'screenshot') {
-    router.push('/screenshot')
-  }
+  if (category === 'screenshot') router.push('/screenshot')
 }
 
 const markAsReadAndNavigate = (phone) => {
@@ -183,7 +188,6 @@ const filteredSmsList = computed(() => {
 
   for (const sms of smsList.value) {
     if (sms.category !== selectedCategory.value) continue
-
     const normalized = normalizePhone(sms.phone || 'unknown')
     const current = map.get(normalized)
 
@@ -217,25 +221,22 @@ onMounted(() => {
     updateDisplayNames()
   }
 
-  // 第一次請求資料
   setTimeout(() => {
     window.Android?.getSmsInbox?.()
     window.Android?.getContacts?.()
   }, 1000)
 
-  // 每 5 秒同步資料
   syncInterval = setInterval(() => {
     window.Android?.getSmsInbox?.()
     window.Android?.getContacts?.()
   }, 5000)
 })
 
-
 onBeforeUnmount(() => {
   if (syncInterval) clearInterval(syncInterval)
 })
 
-// ✅ 接收聯絡人事件
+// ✅ 接收聯絡人資料
 window.addEventListener('contacts-from-android', (e) => {
   contacts.value = e.detail.map(c => ({
     name: c.name,
@@ -243,19 +244,27 @@ window.addEventListener('contacts-from-android', (e) => {
   }))
   receivedContacts = true
 
-  if (receivedSms && latestSmsJson) {
-    dispatchSmsProcessing(latestSmsJson)
-  }
+  if (receivedSms && latestSmsJson) dispatchSmsProcessing(latestSmsJson)
 })
 
-// ✅ 接收簡訊事件
+// ✅ 一般簡訊
 window.addEventListener('sms-from-android', (e) => {
   latestSmsJson = e.detail
   receivedSms = true
 
-  if (receivedContacts) {
-    dispatchSmsProcessing(latestSmsJson)
-  }
+  if (receivedContacts) dispatchSmsProcessing(latestSmsJson)
+})
+
+// ✅ 通知擷取（RCS）
+window.addEventListener('sms-from-notification', (e) => {
+  const notificationSms = e.detail || []
+  dispatchSmsProcessing(notificationSms)
+})
+
+// ✅ MMS 圖片簡訊
+window.addEventListener('mms-from-android', (e) => {
+  const mmsMessages = e.detail || []
+  dispatchSmsProcessing(mmsMessages)
 })
 </script>
 

@@ -199,10 +199,10 @@ onMounted(() => {
   }
 
   // ✅ 若 URL 中含有 loggedOut 參數，就清除 URL query
-  if (router.currentRoute.value.query.loggedOut === 'true') {
-    router.replace({ query: {} })
-  }
-
+ if (router.currentRoute.value.query.loggedOut === 'true') {
+  logout() // ✅ 清除所有使用者暫存資料
+  router.replace({ query: {} }) // ✅ 清空網址參數，避免再次觸發
+}
   // ✅ Android 與 CallLogReceiver 初始化
   window.CallLogReceiver = {
     receive: async (data) => {

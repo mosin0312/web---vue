@@ -19,11 +19,11 @@
       >
         <div v-if="msg.image" class="message-image-wrapper">
           <img :src="msg.image" loading="lazy" class="message-image" alt="" @click="openImage(msg.image)" />
-        </div>  
+        </div>
 
-        <div v-if="msg.text" class="message-bubble" @contextmenu.prevent="copyText(msg.text)">
-          <p class="message-text">
-            {{ msg.text }}
+        <div v-if="msg.text" class="message-bubble" :class="{ 'from-self': msg.position === 'right' }" @contextmenu.prevent="copyText(msg.text)" >
+          <!-- <p class="message-text"> {{ msg.text }}  </p> -->
+          <p class="message-text">  {{ msg.text }}
             <template v-if="msg.link">
               <br />
               <a class="message-link" :href="msg.link" target="_blank">{{ msg.link }}</a>
@@ -44,6 +44,7 @@
           </div>
         </div>
       </div>
+      <div ref="messageEndRef"></div>
     </div>
 
     <!-- Modal Image Preview -->
@@ -54,16 +55,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
+
 const phone = ref(route.query.phone || ' ')
 const displayName = ref(route.query.name || ' ')
 const messages = ref([])
 const showModal = ref(false)
 const previewImg = ref(null)
+const messageEndRef = ref(null)
+
+const smsList = window.smsList || ref([])
 
 const goBack = () => router.go(-1)
 const openImage = (src) => {
@@ -108,11 +113,10 @@ const analyzeMessages = async (smsArray) => {
   const token = localStorage.getItem('token')
   const targetPhone = normalizePhone(phone.value)
 
- const filtered = smsArray.filter(sms =>
-  normalizePhone(sms.address) === targetPhone &&
-  (sms.body || sms.image)
-)
-
+  const filtered = smsArray.filter(sms =>
+    normalizePhone(sms.address) === targetPhone &&
+    (sms.body || sms.image)
+  )
 
   const analyzed = await Promise.all(filtered.map(async sms => {
     let risk = 'unknown'
@@ -138,12 +142,14 @@ const analyzeMessages = async (smsArray) => {
       console.warn('CheckRisk 失敗', e)
     }
 
+    const isSelf = sms.type === 2 || sms.fromMe
+
     return {
-      position: 'left',
+      position: isSelf ? 'right' : 'left',
       text: sms.body,
       link: extractLink(sms.body),
       image: sms.image || '',
-      time: new Date(Number(sms.date)).toLocaleString(),
+      time: new Date(Number(sms.date)).toISOString(),
       risk,
       riskText,
       matchedKeywords,
@@ -151,26 +157,52 @@ const analyzeMessages = async (smsArray) => {
     }
   }))
 
-  // 避免重複加入
   const existingKeys = new Set(messages.value.map(
     m => `${m.text}-${m.time}-${m.image?.length || 0}`
   ))
+
   const uniqueNew = analyzed.filter(m =>
     !existingKeys.has(`${m.text}-${m.time}-${m.image?.length || 0}`)
   )
 
-  messages.value = [...messages.value, ...uniqueNew].sort((a, b) => new Date(a.time) - new Date(b.time))//最新訊息在最下方
-
-
+  messages.value = [...messages.value, ...uniqueNew].sort(
+    (a, b) => new Date(a.time) - new Date(b.time)
+  )
 }
 
+watch(messages, () => {
+  nextTick(() => {
+    messageEndRef.value?.scrollIntoView({ behavior: 'smooth' })
+  })
+})
+
 onMounted(() => {
-  // 監聽三種事件來源
+  const targetPhone = normalizePhone(route.query.phone)
+  const cached = localStorage.getItem('smsList')
+  if (!cached) return
+
+  const list = JSON.parse(cached)
+  let updated = false
+
+  for (const sms of list) {
+    if (normalizePhone(sms.phone) === targetPhone && sms.read === 0) {
+      sms.read = 1
+      updated = true
+    }
+  }
+
+  if (updated) {
+    localStorage.setItem('smsList', JSON.stringify(list))
+    console.log('✅ 已將簡訊標記為已讀')
+  }
+
   window.addEventListener('sms-from-android', (e) => analyzeMessages(e.detail || []))
   window.addEventListener('sms-from-notification', (e) => analyzeMessages(e.detail || []))
   window.addEventListener('mms-from-android', (e) => analyzeMessages(e.detail || []))
 })
 </script>
+
+
 
 
 <style scoped>
@@ -224,6 +256,11 @@ onMounted(() => {
   align-self: flex-end;
   text-align: right;
 }
+.sender-label {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 4px;
+}
 .message-bubble {
   background: white;
   border-radius: 20px;
@@ -232,6 +269,14 @@ onMounted(() => {
   max-width: 100%;
   cursor: pointer;
 }
+.message-bubble.from-self {
+  background: #4af66a;
+}
+
+.message-bubble.from-self .message-text {
+  text-align: left;
+}
+
 .message-text {
   font-size: 14px;
   line-height: 1.5;
@@ -299,3 +344,4 @@ onMounted(() => {
   background: white;
 }
 </style>
+

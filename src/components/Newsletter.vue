@@ -12,7 +12,7 @@
       <button :class="['button-sms-category', selectedCategory === 'strange' ? 'active' : '']" @click="changeCategory('strange')">陌生簡訊</button>
       <button :class="['button-sms-category', selectedCategory === 'screenshot' ? 'active' : '']" @click="changeCategory('screenshot')">截圖分析</button>
     </div>
-
+    
     <!-- 無簡訊提示 -->
     <div v-if="filteredSmsList.length === 0" class="no-sms">尚無簡訊</div>
 
@@ -47,17 +47,67 @@
       </div>
     </div>
   </div>
+  <AlertModal  v-if="modalVisible"  :message="modalMessage"  @close="handleModalClose"/>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
+import { logout } from '@/router/useAuth'
 
 const router = useRouter()
 const selectedCategory = ref('general')
 const smsList = ref([])
 const contacts = ref([])
+
+const modalVisible = ref(false)
+const modalMessage = ref('')
+const shouldRedirect = ref(false)
+
+function showAlert(message, redirect = false) {
+  modalMessage.value = message
+  modalVisible.value = true
+  shouldRedirect.value = redirect
+}
+
+function handleModalClose() {
+  modalVisible.value = false
+  if (shouldRedirect.value) {
+    router.push('/login')
+  }
+}
+
+onMounted(() => {
+  const token = localStorage.getItem('userToken')
+  const role = localStorage.getItem('userRole')
+
+  if (!token || role !== 'User') {
+    showAlert('請先登入', true)
+    return
+  }
+
+  if (router.currentRoute.value.query.loggedOut === 'true') {
+    logout()
+    router.replace({ query: {} })
+  }
+
+  const cached = localStorage.getItem('smsList')
+  if (cached) {
+    smsList.value = JSON.parse(cached)
+    updateDisplayNames()
+  }
+
+  setTimeout(() => {
+    window.Android?.getSmsInbox?.()
+    window.Android?.getContacts?.()
+  }, 1000)
+
+  syncInterval = setInterval(() => {
+    window.Android?.getSmsInbox?.()
+    window.Android?.getContacts?.()
+  }, 60000)
+})
 let syncInterval = null
 
 const normalizePhone = (phone) => {
@@ -82,16 +132,26 @@ const updateDisplayNames = () => {
   }))
 }
 
+// 產生唯一ID（避免重複）
+function generateSmsId(sms) {
+  return `${normalizePhone(sms.address)}_${sms.body}_${sms.date}`
+}
+
 const dispatchSmsProcessing = async (smsArray) => {
   const token = localStorage.getItem('token')
-  const existing = smsList.value.map(s => `${s.phone}-${s.date}-${s.message?.substring(0, 20)}-${s.image?.length || 0}`)
+  const existingMap = new Map(smsList.value.map(s => [s.id, s]))
 
   const analyzedList = await Promise.all(
     smsArray.map(async (sms) => {
       const phone = normalizePhone(sms.address)
       const isContact = contactMap.value.has(phone)
-      const smsKey = `${phone}-${new Date(Number(sms.date)).toISOString()}-${sms.body?.substring(0, 20)}-${sms.image?.length || 0}`
-      if (existing.includes(smsKey)) return null
+      const id = sms.id || generateSmsId(sms)
+
+      // 若已存在，更新已讀狀態
+      if (existingMap.has(id)) {
+        existingMap.get(id).read = sms.read
+        return null
+      }
 
       try {
         const res = await api.post(
@@ -101,6 +161,7 @@ const dispatchSmsProcessing = async (smsArray) => {
         )
         const data = res.data
         return {
+          id,
           phone,
           message: sms.body,
           date: new Date(Number(sms.date)).toISOString(),
@@ -117,6 +178,7 @@ const dispatchSmsProcessing = async (smsArray) => {
         }
       } catch {
         return {
+          id,
           phone,
           message: sms.body,
           date: new Date(Number(sms.date)).toISOString(),
@@ -135,19 +197,12 @@ const dispatchSmsProcessing = async (smsArray) => {
     })
   )
 
-  // ✅ 新增非 null 且不重複的項目
-const filteredNewList = analyzedList.filter(s => s !== null)
-smsList.value = [...smsList.value, ...filteredNewList]
+  const filteredNewList = analyzedList.filter(s => s !== null)
+  smsList.value = [...smsList.value, ...filteredNewList]
+  updateDisplayNames()
 
-updateDisplayNames()
-
-// ✅ 儲存時排除 image 欄位避免 exceed quota
-const smsToStore = smsList.value.map(sms => {
-  const { image, ...rest } = sms
-  return rest
-})
-localStorage.setItem('smsList', JSON.stringify(smsToStore))
-
+  const smsToStore = smsList.value.map(({ image, ...rest }) => rest)
+  localStorage.setItem('smsList', JSON.stringify(smsToStore))
 }
 
 const convertRiskLevel = (riskLevel) => {
@@ -236,7 +291,6 @@ onBeforeUnmount(() => {
   if (syncInterval) clearInterval(syncInterval)
 })
 
-// ✅ 接收聯絡人資料
 window.addEventListener('contacts-from-android', (e) => {
   contacts.value = e.detail.map(c => ({
     name: c.name,
@@ -247,23 +301,19 @@ window.addEventListener('contacts-from-android', (e) => {
   if (receivedSms && latestSmsJson) dispatchSmsProcessing(latestSmsJson)
 })
 
-// ✅ 一般簡訊
 window.addEventListener('sms-from-android', (e) => {
   latestSmsJson = e.detail
   receivedSms = true
-
   if (receivedContacts) dispatchSmsProcessing(latestSmsJson)
 })
 
-// ✅ 通知擷取（RCS）
 window.addEventListener('sms-from-notification', (e) => {
-  const notificationSms = e.detail || []
+  const notificationSms = (e.detail || []).map(s => ({ ...s, read: 1 }))
   dispatchSmsProcessing(notificationSms)
 })
 
-// ✅ MMS 圖片簡訊
 window.addEventListener('mms-from-android', (e) => {
-  const mmsMessages = e.detail || []
+  const mmsMessages = (e.detail || []).map(s => ({ ...s, read: 1 }))
   dispatchSmsProcessing(mmsMessages)
 })
 </script>
@@ -419,4 +469,10 @@ window.addEventListener('mms-from-android', (e) => {
   margin-top: 40px;
   font-size: 16px;
   color: #999;}
+
+.sms-list {
+  max-height: 100%;
+  overflow-y: auto;
+}
+
 </style>

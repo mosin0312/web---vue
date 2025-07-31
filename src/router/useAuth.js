@@ -24,4 +24,5 @@ export const logout = () => {
   localStorage.removeItem('userEmail')
   localStorage.removeItem('accountName')
   localStorage.removeItem('userRole')
+  localStorage.removeItem('smsList')
 }

@@ -194,15 +194,14 @@ onMounted(() => {
   const role = localStorage.getItem('userRole')
 
   if (!token || role !== 'User') {
-    showAlert('請先登入', true) // 只提示，等使用者按下「確定」再跳轉
-    return
-  }
+  showAlert('請先登入', true) //  只提示，等使用者按下「確定」再跳轉
+  return
+}
 
   // ✅ 若 URL 中含有 loggedOut 參數，就清除 URL query
- if (router.currentRoute.value.query.loggedOut === 'true') {
-  logout() // ✅ 清除所有使用者暫存資料
-  router.replace({ query: {} }) // ✅ 清空網址參數，避免再次觸發
-}
+  if (router.currentRoute.value.query.loggedOut === 'true') {
+    router.replace({ query: {} })
+  }
   // ✅ Android 與 CallLogReceiver 初始化
   window.CallLogReceiver = {
     receive: async (data) => {

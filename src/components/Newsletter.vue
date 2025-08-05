@@ -30,8 +30,6 @@
             <div class="phone-risk">
               <span class="phone">{{ sms.displayName }}</span>
               <div class="risk-inline">
-                <img class="risk-icon" :src="getRiskIcon(sms.risk)" :alt="sms.risk" />
-                <span class="risk-reason">{{ sms.riskText }}</span>
               </div>
             </div>
             <span class="message">{{ sms.message }}</span>
@@ -41,7 +39,6 @@
         <div class="sms-right">
   <div class="meta">
   <span class="date">{{ formatDate(sms.date) }}</span>
-  <span v-if="sms.readCount > 0" class="badge">{{ sms.readCount }}</span>
 </div>
 </div>
       </div>
@@ -51,7 +48,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { logout } from '@/router/useAuth'
@@ -155,7 +152,7 @@ const dispatchSmsProcessing = async (smsArray) => {
 
       try {
         const res = await api.post(
-          '/api/MemberManagement/CheckRisk',
+          '/api/MemberManagement/Test',
           { message: sms.body },
           { headers: { Authorization: `Bearer ${token}` }, timeout: 3000 }
         )
@@ -201,7 +198,12 @@ const dispatchSmsProcessing = async (smsArray) => {
   smsList.value = [...smsList.value, ...filteredNewList]
   updateDisplayNames()
 
-  const smsToStore = smsList.value.map(({ image, ...rest }) => rest)
+  const smsToStore = smsList.value.map(sms => {
+  const copy = { ...sms }
+  delete copy.image
+  delete copy.readCount
+  return copy
+})
   localStorage.setItem('smsList', JSON.stringify(smsToStore))
 }
 
@@ -211,15 +213,6 @@ const convertRiskLevel = (riskLevel) => {
     case '中風險': return 'medium'
     case '低風險': return 'low'
     default: return 'unknown'
-  }
-}
-
-const getRiskIcon = (risk) => {
-  switch (risk) {
-    case 'low': return require('@/assets/icons/risk-low.svg')
-    case 'medium': return require('@/assets/icons/risk-medium.svg')
-    case 'high': return require('@/assets/icons/risk-high.svg')
-    default: return require('@/assets/icons/risk-unknown.svg')
   }
 }
 
@@ -251,14 +244,7 @@ const filteredSmsList = computed(() => {
         ...sms,
         phone: normalized,
         displayName: contactMap.value.get(normalized) || normalized,
-        readCount: 0
       })
-    }
-
-    if (sms.read === 0) {
-      const updated = map.get(normalized)
-      updated.readCount = (updated.readCount || 0) + 1
-      map.set(normalized, updated)
     }
   }
 

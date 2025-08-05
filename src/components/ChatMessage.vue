@@ -22,7 +22,6 @@
         </div>
 
         <div v-if="msg.text" class="message-bubble" :class="{ 'from-self': msg.position === 'right' }" @contextmenu.prevent="copyText(msg.text)" >
-          <!-- <p class="message-text"> {{ msg.text }}  </p> -->
           <p class="message-text">  {{ msg.text }}
             <template v-if="msg.link">
               <br />
@@ -57,6 +56,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import api from '@/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -67,8 +67,6 @@ const messages = ref([])
 const showModal = ref(false)
 const previewImg = ref(null)
 const messageEndRef = ref(null)
-
-const smsList = window.smsList || ref([])
 
 const goBack = () => router.go(-1)
 const openImage = (src) => {
@@ -110,7 +108,7 @@ const normalizePhone = (phone) =>
   phone?.replace(/\D/g, '').replace(/^886/, '0')
 
 const analyzeMessages = async (smsArray) => {
-  const token = localStorage.getItem('token')
+  const token = localStorage.getItem('userToken')  
   const targetPhone = normalizePhone(phone.value)
 
   const filtered = smsArray.filter(sms =>
@@ -119,43 +117,49 @@ const analyzeMessages = async (smsArray) => {
   )
 
   const analyzed = await Promise.all(filtered.map(async sms => {
-    let risk = 'unknown'
-    let riskText = '未知'
-    let matchedKeywords = []
-    let matchedScamUrls = []
+  let risk = 'unknown'
+  let riskText = '未知'
+  let matchedKeywords = []
+  let matchedScamUrls = []
 
-    try {
-      const response = await fetch('/api/MemberManagement/CheckRisk', {
-        method: 'POST',
+  try {
+    const response = await api.post(
+      '/api/Test',
+      { message: sms.body },
+      {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ message: sms.body })
-      })
-      const data = await response.json()
-      risk = convertRisk(data.riskLevel)
-      riskText = data.riskLevel
-      matchedKeywords = data.matchedKeywords || []
-      matchedScamUrls = data.matchedScamUrls || []
-    } catch (e) {
-      console.warn('CheckRisk 失敗', e)
-    }
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
 
-    const isSelf = sms.type === 2 || sms.fromMe
+    const data = response.data
+    console.log('📦 CheckRisk 回傳資料：', data)
 
-    return {
-      position: isSelf ? 'right' : 'left',
-      text: sms.body,
-      link: extractLink(sms.body),
-      image: sms.image || '',
-      time: new Date(Number(sms.date)).toISOString(),
-      risk,
-      riskText,
-      matchedKeywords,
-      matchedScamUrls
-    }
-  }))
+    risk = convertRisk(data.riskLevel)
+    riskText = data.riskLevel
+    matchedKeywords = data.matchedKeywords || []
+    matchedScamUrls = data.matchedScamUrls || []
+
+  } catch (e) {
+    console.warn('❌ CheckRisk API 錯誤：', e)
+  }
+
+  const isSelf = sms.type === 2 || sms.fromMe
+
+  return {
+    position: isSelf ? 'right' : 'left',
+    text: sms.body,
+    link: extractLink(sms.body),
+    image: sms.image || '',
+    time: new Date(Number(sms.date)).toISOString(),
+    risk,
+    riskText,
+    matchedKeywords,
+    matchedScamUrls
+  }
+}))
+
 
   const existingKeys = new Set(messages.value.map(
     m => `${m.text}-${m.time}-${m.image?.length || 0}`
@@ -200,10 +204,8 @@ onMounted(() => {
   window.addEventListener('sms-from-notification', (e) => analyzeMessages(e.detail || []))
   window.addEventListener('mms-from-android', (e) => analyzeMessages(e.detail || []))
 })
+
 </script>
-
-
-
 
 <style scoped>
 .main-container {
@@ -220,6 +222,8 @@ onMounted(() => {
   align-items: center;
   padding: 10px 16px;
   gap: 10px;
+  z-index: 10; /* 確保在其他區塊上層 */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 陰影區分層次 */
 }
 .logo {
   width: 40px;
@@ -275,12 +279,16 @@ onMounted(() => {
 
 .message-bubble.from-self .message-text {
   text-align: left;
+
 }
 
 .message-text {
   font-size: 14px;
   line-height: 1.5;
   white-space: pre-wrap;
+  white-space: pre-wrap;       /* 保留換行 + 自動換行 */
+  word-break: break-all;       /* 長網址/單字會自動斷行 */
+  overflow-wrap: break-word;   /* 備援處理斷行 */
 }
 .message-link {
   color: #007aff;

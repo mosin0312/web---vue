@@ -272,8 +272,8 @@ onUnmounted(() => {
 
 
 .header-icon {
-  width: 39px;
-  height: 39px;
+  width: 40px;
+  height: 40px;
 }
 
 .notification-bar {

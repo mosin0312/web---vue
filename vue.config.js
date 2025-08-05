@@ -12,7 +12,7 @@ module.exports = {
         changeOrigin: true,
       },
       '/api': {
-        target: 'https://192.168.217.211:7050',
+        target: 'https://192.168.217.211:7050',//192.168.217.211之前
         changeOrigin: true,
         secure: false, // 因為是自簽 HTTPS
     },

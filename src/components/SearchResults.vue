@@ -101,7 +101,7 @@ const goBack = () => {
 }
 .header-icon {
   width: 39px;
-  height: 28px;
+  height: 39px;
 }
 .title {
   font-size: 20px;

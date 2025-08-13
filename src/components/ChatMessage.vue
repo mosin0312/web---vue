@@ -80,6 +80,7 @@ const getRiskIcon = (risk) => {
     case 'low': return new URL('@/assets/icons/risk-low.svg', import.meta.url).href
     case 'medium': return new URL('@/assets/icons/risk-medium.svg', import.meta.url).href
     case 'high': return new URL('@/assets/icons/risk-high.svg', import.meta.url).href
+    case 'no': return new URL('@/assets/icons/risk-no.svg', import.meta.url).href
     default: return new URL('@/assets/icons/risk-unknown.svg', import.meta.url).href
   }
 }
@@ -95,6 +96,7 @@ const convertRisk = (level) => {
     case '高風險': return 'high'
     case '中風險': return 'medium'
     case '低風險': return 'low'
+    case '無風險': return 'no'
     default: return 'unknown'
   }
 }

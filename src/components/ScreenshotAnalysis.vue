@@ -32,9 +32,10 @@
           <!-- 氣泡 + 氣泡時間（靠左，並排） -->
           <div class="message-row">
             <div class="message-bubble">
-              <img :src="getRiskIcon(item.risk)" class="risk-icon" />
-              <span class="risk-reason">原因</span>
-            </div>
+  <img :src="getRiskIcon(item.risk)" class="risk-icon" />
+  <span class="risk-reason">{{ item.reason || '—' }}</span>
+
+</div>
             <time class="message-timestamp">{{ item.timestamp }}</time>
           </div>
         </div>
@@ -64,77 +65,124 @@ export default {
   data() {
     return {
       analysisItems: [
-        {
-          timestamp: "2025/04/17 17:50",
-          risk: "high",
-          image: require("@/assets/icons/pic.svg"),
-        },
-        {
-          timestamp: "2025/04/17 17:51",
-          risk: "medium",
-          image: require("@/assets/icons/pic.svg"),
-        },
-        {
-          timestamp: "2025/04/17 17:52",
-          risk: "low",
-          image: require("@/assets/icons/pic.svg"),
-        },
+        { timestamp: "2025/04/17 17:50", risk: "high",   image: require("@/assets/icons/pic.svg"), reason: "示例" },
+        { timestamp: "2025/04/17 17:51", risk: "medium", image: require("@/assets/icons/pic.svg"), reason: "示例" },
+        { timestamp: "2025/04/17 17:52", risk: "low",    image: require("@/assets/icons/pic.svg"), reason: "示例" },
       ],
       previewImage: null,
+      lastPickedBlobUrl: "",       // 暫存預覽用，等 Android 回傳時使用
+      onUploadDone: null,          // 事件處理器引用，卸載時移除
     };
   },
+
+  mounted() {
+    // 接 Android 回傳的結果事件
+    this.onUploadDone = (e) => {
+      const r = e.detail || {};
+      const risk =
+        r.riskLevel ||
+        (Array.isArray(r.matchedKeywords) && r.matchedKeywords.length ? "low" : "no");
+      const reason =
+        Array.isArray(r.matchedKeywords) && r.matchedKeywords.length
+          ? r.matchedKeywords.join("、")
+          : (r.success === false ? (r.message || "圖片分析失敗") : "未偵測到風險");
+
+      this.analysisItems.push({
+        timestamp: new Date().toLocaleString(),
+        risk,
+        image: this.lastPickedBlobUrl || "",
+        reason,
+      });
+      this.lastPickedBlobUrl = "";
+    };
+    window.addEventListener("upload-image3-done", this.onUploadDone);
+  },
+
+  beforeUnmount() {
+    if (this.onUploadDone) {
+      window.removeEventListener("upload-image3-done", this.onUploadDone);
+    }
+  },
+
   methods: {
     getRiskIcon(level) {
-      const icons = {
-        high: require("@/assets/icons/risk-high.svg"),
-        medium: require("@/assets/icons/risk-medium.svg"),
-        low: require("@/assets/icons/risk-low.svg"),
-      };
-      return icons[level] || icons.low;
-    },
-    openPreview(imageUrl) {
-      this.previewImage = imageUrl;
-    },
-    closePreview() {
-      this.previewImage = null;
-    },
-    async handleUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const formData = new FormData();
-      formData.append("image", file);
-
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("http://localhost:5000/api/screenshot-analysis", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        });
-
-        const result = await res.json();
-
-        this.analysisItems.push({
-          timestamp: new Date().toLocaleString(),
-          risk: result.risk || "low",
-          image: URL.createObjectURL(file),
-        });
-      } catch (err) {
-        console.error("圖片分析失敗：", err);
-        // 加入預設結果
-        this.analysisItems.push({
-          timestamp: new Date().toLocaleString(),
-          risk: "low",
-          image: URL.createObjectURL(file),
-        });
-      }
-    },
+    const icons = {
+      high: require("@/assets/icons/risk-high.svg"),
+      medium: require("@/assets/icons/risk-medium.svg"),
+      low: require("@/assets/icons/risk-low.svg"),
+      no: require("@/assets/icons/risk-no.svg"),
+      unknown: require("@/assets/icons/risk-unknown.svg"),
+    };
+    return icons[level] || icons.unknown;
   },
+
+  openPreview(url) { this.previewImage = url; },
+  closePreview() { this.previewImage = null; },
+
+    // 檔案轉 base64（只回傳逗號後半段）
+    fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => {
+          const s = String(r.result || "");
+          resolve(s.split(",")[1] || "");
+        };
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+    },
+
+    // 上傳
+    async handleUpload(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const previewUrl = URL.createObjectURL(file);
+
+  const formData = new FormData();
+  formData.append("file", file); // 後端參數名 IFormFile file，key 必須叫 "file"
+
+  try {
+    const token = localStorage.getItem("userToken") || "";
+    // ✅ 改成打 Tesseract 端點（路線B）
+    const res = await fetch("/api/Test/upload-image", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    const raw = await res.text();
+    let result = {};
+    try { result = JSON.parse(raw); } catch { /* 保持空物件供錯誤訊息輸出 */ }
+
+    if (!res.ok) throw new Error(result.message || `HTTP ${res.status} ${raw}`);
+
+    // Tesseract 端點回傳的是 isScam / matchedKeywords / extractedText
+    const risk = result.isScam ? "low" : "no";
+    const reason = Array.isArray(result.matchedKeywords) && result.matchedKeywords.length
+      ? result.matchedKeywords.join("、")
+      : "未偵測到風險";
+
+    this.analysisItems.push({
+      timestamp: new Date().toLocaleString(),
+      risk,
+      image: previewUrl,
+      reason,
+    });
+  } catch (err) {
+    console.error("upload-image 失敗：", err);
+    this.analysisItems.push({
+      timestamp: new Date().toLocaleString(),
+      risk: "unknown",          // 失敗就顯示 risk-unknown.svg
+      image: previewUrl,
+      reason: "圖片分析失敗",
+    });
+  }
+},
+},
 };
 </script>
+
 
 <style scoped>
 .screenshot-analysis {

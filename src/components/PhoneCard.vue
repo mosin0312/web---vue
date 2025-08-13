@@ -8,27 +8,36 @@
 
     <!-- Search -->
     <div class="search-container">
-  <img
-    src="@/assets/icons/search-icon.svg"
-    alt="search"
-    class="search-icon"
-    @click="searchPhone($event)"
-  />
-  <input
-    type="text"
-    class="search-input"
-    placeholder="Search..."
-    maxlength="10"
-    v-model="searchQuery"
-    @keyup.enter="searchPhone($event)"
-  />
-</div>
+      <img
+        src="@/assets/icons/search-icon.svg"
+        alt="search"
+        class="search-icon"
+        @click="searchPhone($event)"
+      />
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Search..."
+        maxlength="10"
+        v-model="searchQuery"
+        @keyup.enter="searchPhone($event)"
+      />
+    </div>
 
     <!-- Call List -->
     <div class="call-list">
-      <div v-for="entry in filteredCallEntries" :key="entry.number + entry.date" class="call-entry">
-        
-        <!-- 上層：頭像、聯絡人、時間 -->
+      <!-- 上層：頭像、聯絡人、時間 -->
+      <div
+        v-for="entry in filteredCallEntries"
+        :key="entry.number + entry.date"
+        class="call-entry"
+        @mousedown="onPressStart($event, entry)"
+        @touchstart="onPressStart($event, entry)"
+        @mouseup="onPressEnd"
+        @mouseleave="onPressEnd"
+        @touchend="onPressEnd"
+        @touchcancel="onPressEnd"
+      >
         <div class="call-entry-container">
           <!-- 左：頭像 -->
           <div class="avatar-container">
@@ -39,6 +48,7 @@
           <div class="caller-info">
             <!-- 聯絡人名稱：純文字不加連結 -->
             <div class="caller-name">{{ entry.name || "未知來電" }}</div>
+
             <!-- 號碼：只有這段可以點擊撥號 -->
             <div
               class="caller-number dialable"
@@ -47,14 +57,15 @@
             >
               {{ entry.number }}
             </div>
-            <!-- 若聯絡人名稱不存在，則點擊號碼本身 -->
-  <div
-    class="caller-name dialable"
-    v-if="!entry.name"
-    @click="dial(entry.number)"
-  >
-    {{ entry.number }}
-  </div>
+
+            <!-- 沒姓名時，讓號碼可點擊 -->
+            <div
+              class="caller-name dialable"
+              v-if="!entry.name"
+              @click="dial(entry.number)"
+            >
+              {{ entry.number }}
+            </div>
           </div>
 
           <!-- 右：時間與通話圖示 -->
@@ -72,7 +83,20 @@
       </div>
     </div>
 
-    <AlertModal :visible="showModal" :message="modalMessage" @confirm="handleModalClose" @close="showModal = false" />
+    <!-- 黑名單彈窗 -->
+    <BlacklistModal
+      :visible="showBlacklist"
+      :incoming="selectedEntry"
+      @close="showBlacklist = false"
+      @confirm="handleBlacklistConfirm"
+    />
+
+    <AlertModal
+      :visible="showModal"
+      :message="modalMessage"
+      @confirm="handleModalClose"
+      @close="showModal = false"
+    />
   </div>
 </template>
 
@@ -80,6 +104,7 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import AlertModal from '@/components/AlertModal.vue'
+import BlacklistModal from '@/components/BlacklistModal.vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -90,12 +115,61 @@ const showModal = ref(false)
 const modalMessage = ref('')
 const shouldRedirect = ref(false)
 
+// 公開/非公開 → 理由 → TypeCode 對照（可依你 DB 需求調整）
+const TYPE_CODE = {
+  '公開': {
+    '一接就掛': 101,
+    '詐騙': 102,
+    '推銷/廣告': 103,
+    '騷擾': 104,
+    '其他': 199,
+  },
+  '非公開': {
+    '舊情人': 201,
+    '家庭內部衝突': 202,
+    '語言不通無法溝通': 203,
+    '個人情感問題': 204,
+    '其他': 299,
+  },
+}
+
+function getUserIdFromLocalOrToken() {
+  // 先看 localStorage（登入時可先存好）
+  const stored = localStorage.getItem('userId') ?? localStorage.getItem('UserId')
+  if (stored && Number.isFinite(+stored)) return +stored
+
+  // 再看 JWT（Base64URL → Base64）
+  const t = localStorage.getItem('userToken')
+  if (!t) return null
+  try {
+    const b64url = t.split('.')[1]
+    if (!b64url) return null
+    const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/')
+    const json = atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='))
+    const payload = JSON.parse(json)
+
+    // 你後端就是這個鍵
+    const id = payload.userId ?? payload.UserId
+    return Number.isFinite(+id) ? +id : null
+  } catch {
+    return null
+  }
+}
+
+
+
+
+// ===== 黑名單：長按狀態 =====
+const pressTimer = ref(null)
+const pressThreshold = 600 // 毫秒（長按判定）
+const showBlacklist = ref(false)
+const selectedEntry = ref({ number: '', name: '' })
+
 function showAlert(message, redirectToHome = false) {
   modalMessage.value = message
   showModal.value = true
   shouldRedirect.value = redirectToHome
 }
-
 function handleModalClose() {
   showModal.value = false
   if (shouldRedirect.value) {
@@ -116,21 +190,17 @@ function formatDate(timestamp) {
   const date = new Date(Number(timestamp))
   return date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })
 }
-
 function formatTime(timestamp) {
   if (!timestamp) return ''
   const date = new Date(Number(timestamp))
   return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
 }
-
 function getDirectionIcon(type) {
   return require(`@/assets/icons/${type === '撥出' ? 'arrow-outgoing' : 'arrow-incoming'}.svg`)
 }
-
 function getCallIcon(duration) {
   return require(`@/assets/icons/${duration === '0' ? 'call-end' : 'call-received'}.svg`)
 }
-
 function dial(number) {
   if (window.Android?.dialNumber) {
     window.Android.dialNumber(number)
@@ -139,70 +209,165 @@ function dial(number) {
   }
 }
 
+// ====== 查風險 ======
 async function searchPhone(event) {
   if (event?.preventDefault) event.preventDefault()
-
   const raw = searchQuery.value?.trim()
   const phone = raw?.replace(/[^0-9]/g, '')
-  if (!phone) {
-    showAlert('請輸入要查詢的電話號碼')
-    return
-  }
+  if (!phone) return showAlert('請輸入要查詢的電話號碼')
 
   const token = localStorage.getItem('userToken')
-  if (!token) {
-    showAlert('請先登入才能查詢電話風險', true)
-    return
-  }
+  if (!token) return showAlert('請先登入才能查詢電話風險', true)
 
   try {
     const res = await axios.get(`/api/MemberManagement/lookuptest/${phone}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-
     const results = res.data?.results
-    if (!results || Object.keys(results).length === 0) {
-      showAlert('查無資料')
-      return
-    }
+    if (!results || Object.keys(results).length === 0) return showAlert('查無資料')
 
     const phoneBook = results.phoneBook || {}
     const whosNumber = results.whosNumber || {}
     const tellows = results.tellows || {}
-
-    // ✅ 使用 sessionStorage 儲存完整資料
-    sessionStorage.setItem('searchData', JSON.stringify({
-      phone,
-      phoneBook,
-      whosNumber,
-      tellows
-    }))
-
-    // ✅ 只導向路由，不帶複雜 query
+    sessionStorage.setItem('searchData', JSON.stringify({ phone, phoneBook, whosNumber, tellows }))
     router.push({ path: '/search-phone' })
-
   } catch (err) {
     console.error('查詢失敗:', err)
     showAlert('查詢電話風險時發生錯誤')
   }
 }
 
-onMounted(() => {
-  searchQuery.value = ''
-  // ✅ 驗證 Token 與角色是否合法
-  const token = localStorage.getItem('userToken')
-  const role = localStorage.getItem('userRole')
+// ====== 長按行為（開啟黑名單） ======
+function onPressStart(e, entry) {
+  clearTimeout(pressTimer.value)
+  pressTimer.value = setTimeout(() => {
+    selectedEntry.value = { number: entry.number, name: entry.name || '' }
+    showBlacklist.value = true
+  }, pressThreshold)
+}
+function onPressEnd() {
+  clearTimeout(pressTimer.value)
+}
 
-  if (!token || role !== 'User') {
-  showAlert('請先登入', true) //  只提示，等使用者按下「確定」再跳轉
+// ====== 黑名單確認：儲存並導頁 ======
+async function handleBlacklistConfirm(payload) {
+  // payload = { scope: '公開' | '非公開', reason: '...', note: '...' }
+  const phone = selectedEntry.value.number
+  const name = selectedEntry.value.name || ''
+
+  // 1) 取得並轉成整數 ID（路線 A）
+  const userId = getUserIdFromLocalOrToken()
+if (!Number.isFinite(userId)) {
+  showAlert('找不到使用者資訊或格式錯誤（需要整數 ID），請重新登入', true)
   return
 }
 
-  // ✅ 若 URL 中含有 loggedOut 參數，就清除 URL query
+
+  // 2) 取得 token
+  const token = localStorage.getItem('userToken')
+  if (!token) {
+    showAlert('請先登入', true)
+    return
+  }
+
+  // 3) 對照 TypeCode（沒對到就落到「其他」）
+  const codeTable = TYPE_CODE[payload.scope] || {}
+  const typeCode = codeTable[payload.reason] ?? codeTable['其他'] ?? 999
+
+  try {
+    // 4) 呼叫後端 API
+    const body = {
+      UserId: userId,                              // ← int
+      PhoneNumber: phone,
+      TypeCode: String(typeCode),                          
+      ExtraText: (payload.note || '').trim() || payload.reason || ''
+    }
+
+    console.log('[create body]', body, {
+    typeof_UserId: typeof body.UserId,
+    typeof_TypeCode: typeof body.TypeCode,
+    typeof_ExtraText: typeof body.ExtraText
+  })
+
+    await axios.post('/api/Test/create', body, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    // 5) 成功後，同步寫回 localStorage 給 BlacklistView 使用
+    const key = 'blacklist'
+    const list = JSON.parse(localStorage.getItem(key) || '[]')
+
+    const createdAt = Date.now()
+    const item = {
+      number: phone,
+      name,
+      scope: payload.scope,                 // '公開' 或 '非公開'
+      reason: payload.reason || '其他',
+      note: (payload.note || '').trim(),
+      createdAt
+    }
+
+    const idx = list.findIndex(x => x.number === phone)
+    if (idx >= 0) list.splice(idx, 1)
+    list.unshift(item)
+    localStorage.setItem(key, JSON.stringify(list))
+
+    showBlacklist.value = false
+  } catch (err) {
+    console.error('建立黑名單失敗', err)
+
+    // 針對常見錯誤做更友善提示
+    if (err?.response?.status === 401) {
+      showAlert('登入已失效，請重新登入', true)
+      return
+    }
+    if (err?.response?.status === 400) {
+      // 從 ASP.NET Core ModelState 萃取錯誤訊息
+      const errors = err?.response?.data?.errors
+      if (errors && typeof errors === 'object') {
+        const msgs = []
+        for (const k of Object.keys(errors)) {
+          const arr = errors[k]
+          if (Array.isArray(arr)) msgs.push(...arr)
+        }
+        if (msgs.length) {
+          showAlert(`送出資料有誤：\n- ${msgs.join('\n- ')}`)
+          return
+        }
+      }
+      showAlert('送出資料有誤，請檢查欄位內容')
+      return
+    }
+    if (err?.response?.status === 500) {
+      showAlert('資料庫錯誤，請稍後再試')
+      return
+    }
+    showAlert('儲存失敗，請稍後再試')
+  }
+}
+
+
+
+onMounted(() => {
+  searchQuery.value = ''
+
+  // 驗證 Token 與角色
+  const token = localStorage.getItem('userToken')
+  const role = localStorage.getItem('userRole')
+  if (!token || role !== 'User') {
+    showAlert('請先登入', true) //  只提示，等使用者按下「確定」再跳轉
+  return
+  }
+
+  // 清除 ?loggedOut
   if (router.currentRoute.value.query.loggedOut === 'true') {
     router.replace({ query: {} })
   }
-  // ✅ Android 與 CallLogReceiver 初始化
+
+  // Android 與 CallLogReceiver 初始化
   window.CallLogReceiver = {
     receive: async (data) => {
       try {
@@ -212,12 +377,10 @@ onMounted(() => {
         for (const entry of parsed) {
           const phone = entry.number
           if (!phone) continue
-
           try {
             const res = await axios.get(`/api/MemberManagement/lookuptest/${phone}`, {
               headers: { Authorization: `Bearer ${token}` }
             })
-
             const results = res.data?.results
             if (results) {
               // 優先取 phoneBook，其次 whosNumber，再次 tellows
@@ -234,17 +397,13 @@ onMounted(() => {
     }
   }
 
-  if (window.Android && window.Android.getCallLogs) {
+  if (window.Android?.getCallLogs) {
     window.Android.getCallLogs()
   } else {
     console.warn('Android 通話記錄橋接尚未就緒')
   }
 })
 </script>
-
-
-
-
 
 <style scoped>
 .call-history-page {
@@ -259,32 +418,26 @@ onMounted(() => {
   box-sizing: border-box;
   position: relative; 
 }
-
-.call-header {
-  width: 100%;
-  height: 40px;
-  padding: 2px 17px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background-color: #fff;
-  position: sticky;
-  top: 0;
-  z-index: 10; /* 確保在其他區塊上層 */
+.call-header { 
+  width: 100%; 
+  height: 40px; 
+  padding: 2px 17px; 
+  display: flex; 
+  align-items: center; 
+  gap: 7px; 
+  background-color: #fff; position: sticky; top: 0; z-index: 10; /* 確保在其他區塊上層 */
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 陰影區分層次 */
 }
 
-.header-icon {
-  width: 39px;
-  height: 39px;
-}
+.header-icon { 
+  width: 39px; 
+  height: 39px; }
 
-.header-title {
-  font-size: 20px;
-  color: #000;
-  font-weight: 700;
-  margin: 0;
-}
+.header-title { 
+  font-size: 20px; 
+  color: #000; 
+  font-weight: 700; 
+  margin: 0; }
 
 .search-container {
   width: 100%;
@@ -293,9 +446,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   background-color: #fff;
-  margin: 10px 0 20px;
-}
-
+  margin: 10px 0 20px; }
 .search-icon {
   width: 40px;
   height: 40px;
@@ -324,9 +475,7 @@ onMounted(() => {
   padding: 8px;
   border-radius: 14px;
   background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
 .call-entry-container {
   display: flex;
   align-items: center;
@@ -337,37 +486,27 @@ onMounted(() => {
 .user-info {
   display: flex;
   gap: 14px;
-  align-items: center;
-}
-
+  align-items: center; }
 .avatar-container {
   flex-shrink: 0;
-  margin-right: 8px;
-}
-
+  margin-right: 8px; }
 .caller-info {
   flex-grow: 1;
 }
 
 .call-details {
   text-align: right;
-  min-width: 90px;
-}
-
+  min-width: 90px; }
 .priority-container {
   display: flex;
   align-items: center;
   margin-left: 48px; /* 對齊 caller-info 開頭 */
   margin-top: 4px;
-  gap: 4px;
-}
-
+  gap: 4px; }
 .avatar {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-}
-
+  border-radius: 50%; }
 .status-indicator {
   position: absolute;
   left: 26px;

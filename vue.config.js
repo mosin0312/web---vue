@@ -16,6 +16,10 @@ module.exports = {
         changeOrigin: true,
         secure: false, // 因為是自簽 HTTPS
     },
+//     '/whisper': {
+//   target: 'http://192.168.0.16:5000',
+//   changeOrigin: true
+// },
   }
   }
 };

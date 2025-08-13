@@ -19,6 +19,7 @@ import Home from '@/components/Home.vue'
 import PhoneCard from '@/components/PhoneCard.vue'
 import SearchResults from '@/components/SearchResults.vue'
 import AudioAnalysisView from '@/components/AudioAnalysisView.vue'
+import BlacklistView from '@/components/BlacklistView.vue'
 
 const routes = [
   { path: '/', component: LoginView },
@@ -40,7 +41,8 @@ const routes = [
   {path: '/home',component:Home},
   {path: '/phonecard',component:PhoneCard},
   {path: '/search-phone',component:SearchResults},
-  {path:'/audio-analysis',component:AudioAnalysisView}
+  {path:'/audio-analysis',component:AudioAnalysisView},
+  {path:'/blacklist',component:BlacklistView}
 ]
 
 const router = createRouter({

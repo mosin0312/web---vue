@@ -59,129 +59,118 @@
   </main>
 </template>
 
-<script>
-export default {
-  name: "ScreenshotAnalysis",
-  data() {
-    return {
-      analysisItems: [
-        { timestamp: "2025/04/17 17:50", risk: "high",   image: require("@/assets/icons/pic.svg"), reason: "示例" },
-        { timestamp: "2025/04/17 17:51", risk: "medium", image: require("@/assets/icons/pic.svg"), reason: "示例" },
-        { timestamp: "2025/04/17 17:52", risk: "low",    image: require("@/assets/icons/pic.svg"), reason: "示例" },
-      ],
-      previewImage: null,
-      lastPickedBlobUrl: "",       // 暫存預覽用，等 Android 回傳時使用
-      onUploadDone: null,          // 事件處理器引用，卸載時移除
-    };
-  },
+<script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 
-  mounted() {
-    // 接 Android 回傳的結果事件
-    this.onUploadDone = (e) => {
-      const r = e.detail || {};
-      const risk =
-        r.riskLevel ||
-        (Array.isArray(r.matchedKeywords) && r.matchedKeywords.length ? "low" : "no");
-      const reason =
-        Array.isArray(r.matchedKeywords) && r.matchedKeywords.length
-          ? r.matchedKeywords.join("、")
-          : (r.success === false ? (r.message || "圖片分析失敗") : "未偵測到風險");
+const analysisItems = ref([
+  { timestamp: "2025/04/17 17:50", risk: "high", image: require("@/assets/icons/pic.svg"), reason: "示例" },
+  { timestamp: "2025/04/17 17:51", risk: "medium", image: require("@/assets/icons/pic.svg"), reason: "示例" },
+  { timestamp: "2025/04/17 17:52", risk: "low", image: require("@/assets/icons/pic.svg"), reason: "示例" },
+])
 
-      this.analysisItems.push({
-        timestamp: new Date().toLocaleString(),
-        risk,
-        image: this.lastPickedBlobUrl || "",
-        reason,
-      });
-      this.lastPickedBlobUrl = "";
-    };
-    window.addEventListener("upload-image3-done", this.onUploadDone);
-  },
+const previewImage = ref(null)
+const lastPickedBlobUrl = ref("")
+let onUploadDone = null
 
-  beforeUnmount() {
-    if (this.onUploadDone) {
-      window.removeEventListener("upload-image3-done", this.onUploadDone);
-    }
-  },
+const getRiskIcon = (level) => {
+  const icons = {
+    high: require("@/assets/icons/risk-high.svg"),
+    medium: require("@/assets/icons/risk-medium.svg"),
+    low: require("@/assets/icons/risk-low.svg"),
+    no: require("@/assets/icons/risk-no.svg"),
+    unknown: require("@/assets/icons/risk-unknown.svg"),
+  }
+  return icons[level] || icons.unknown
+}
 
-  methods: {
-    getRiskIcon(level) {
-    const icons = {
-      high: require("@/assets/icons/risk-high.svg"),
-      medium: require("@/assets/icons/risk-medium.svg"),
-      low: require("@/assets/icons/risk-low.svg"),
-      no: require("@/assets/icons/risk-no.svg"),
-      unknown: require("@/assets/icons/risk-unknown.svg"),
-    };
-    return icons[level] || icons.unknown;
-  },
+const openPreview = (url) => {
+  previewImage.value = url
+}
+const closePreview = () => {
+  previewImage.value = null
+}
 
-  openPreview(url) { this.previewImage = url; },
-  closePreview() { this.previewImage = null; },
+const handleUpload = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
 
-    // 檔案轉 base64（只回傳逗號後半段）
-    fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => {
-          const s = String(r.result || "");
-          resolve(s.split(",")[1] || "");
-        };
-        r.onerror = reject;
-        r.readAsDataURL(file);
-      });
-    },
+  const previewUrl = URL.createObjectURL(file)
+  lastPickedBlobUrl.value = previewUrl
 
-    // 上傳
-    async handleUpload(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  const previewUrl = URL.createObjectURL(file);
-
-  const formData = new FormData();
-  formData.append("file", file); // 後端參數名 IFormFile file，key 必須叫 "file"
+  const formData = new FormData()
+  formData.append("file", file)
 
   try {
-    const token = localStorage.getItem("userToken") || "";
-    // ✅ 改成打 Tesseract 端點（路線B）
-    const res = await fetch("/api/Test/upload-image", {
+    const token = localStorage.getItem("userToken") || ""
+
+    const res = await fetch("/api/Test/upload-image3", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
-    });
+    })
 
-    const raw = await res.text();
-    let result = {};
-    try { result = JSON.parse(raw); } catch { /* 保持空物件供錯誤訊息輸出 */ }
+    const raw = await res.text()
+    let result = {}
+    try {
+      result = JSON.parse(raw)
+    } catch {
+      // 無法解析 JSON 時忽略錯誤，保留空物件
+    }
 
-    if (!res.ok) throw new Error(result.message || `HTTP ${res.status} ${raw}`);
+    if (!res.ok) throw new Error(result.message || `HTTP ${res.status} ${raw}`)
 
-    // Tesseract 端點回傳的是 isScam / matchedKeywords / extractedText
-    const risk = result.isScam ? "low" : "no";
+    const risk = result.isScam ? "low" : "no"
     const reason = Array.isArray(result.matchedKeywords) && result.matchedKeywords.length
       ? result.matchedKeywords.join("、")
-      : "未偵測到風險";
+      : "未偵測到風險"
 
-    this.analysisItems.push({
+    analysisItems.value.push({
       timestamp: new Date().toLocaleString(),
       risk,
       image: previewUrl,
       reason,
-    });
+    })
   } catch (err) {
-    console.error("upload-image 失敗：", err);
-    this.analysisItems.push({
+    console.error("upload-image3 失敗：", err)
+    analysisItems.value.push({
       timestamp: new Date().toLocaleString(),
-      risk: "unknown",          // 失敗就顯示 risk-unknown.svg
+      risk: "unknown",
       image: previewUrl,
       reason: "圖片分析失敗",
-    });
+    })
   }
-},
-},
-};
+}
+
+onMounted(() => {
+  onUploadDone = (e) => {
+    const r = e.detail || {}
+    const risk =
+      r.riskLevel ||
+      (Array.isArray(r.matchedKeywords) && r.matchedKeywords.length ? "low" : "no")
+    const reason =
+      Array.isArray(r.matchedKeywords) && r.matchedKeywords.length
+        ? r.matchedKeywords.join("、")
+        : (r.success === false ? (r.message || "圖片分析失敗") : "未偵測到風險")
+
+    analysisItems.value.push({
+      timestamp: new Date().toLocaleString(),
+      risk,
+      image: lastPickedBlobUrl.value || "",
+      reason,
+    })
+    lastPickedBlobUrl.value = ""
+  }
+  window.addEventListener("upload-image3-done", onUploadDone)
+})
+
+onBeforeUnmount(() => {
+  if (onUploadDone) {
+    window.removeEventListener("upload-image3-done", onUploadDone)
+  }
+})
 </script>
+
+
 
 
 <style scoped>

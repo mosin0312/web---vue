@@ -32,7 +32,7 @@ const routes = [
   { path: '/preview', component: WebPreview },//點擊網址後能跳出網頁內容
   {path: '/screenshot',component:ScreenshotAnalysis},//截圖分析
   {path: '/anti-fraud-helpline',component:AntiFraudHelpline},//防詐專線
-  {path: '/common-fraud-methods',component:CommonFraudMethods},//疑似詐騙資訊
+  {path: '/common-fraud-methods',component:CommonFraudMethods},//常見詐騙手法
   {path: '/anti-fraud-pomption',component:AntifraudPomotion},//防詐宣導
   {path: '/member-management',component:MemberManagementView,},//會員管理
   {path: '/modify-nickname',component:ModifyNicknameView},//暱稱更改

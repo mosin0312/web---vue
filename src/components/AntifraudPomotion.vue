@@ -2,7 +2,7 @@
   <div class="fraud-container">
     <!-- 標題區塊 -->
     <div class="title-section">
-      <img src="@/assets/icons/header-icon.svg" alt="Logo" class="header-icon" />
+      <img src="@/assets/icons/comeback.svg" alt="Logo" class="header-icon" @click="goBack"/>
       <span class="title-text">防詐宣導</span>
     </div>
 
@@ -13,7 +13,7 @@
         <span class="icon-label">防詐專線</span>
       </div>
       <div class="icon-row" @click="goTo('/common-fraud-methods')">
-        <img src="@/assets/icons/Common fraud methods.svg" class="icon-image" alt="常見詐騙手法" />
+        <img src="@/assets/icons/common fraud methods.svg" class="icon-image" alt="常見詐騙手法" />
         <span class="icon-label">常見詐騙手法</span>
       </div>
     </div>
@@ -33,7 +33,6 @@ function goTo(path) {
 <style scoped>
 .fraud-container {
   width: 100%;
-  height: 100vh;
   max-width: 100%;
   margin: 0 auto;
   background: linear-gradient(180deg, #ffcbb3, #ffffff);
@@ -62,8 +61,8 @@ function goTo(path) {
 }
 
 .header-icon {
-  width: 39px;
-  height: 33px;
+  width: 40px;
+  height: 40px;
   object-fit: contain;
 }
 

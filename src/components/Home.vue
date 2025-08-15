@@ -7,7 +7,7 @@
         <h1 class="page-title">主頁</h1>
       </div>
       <div class="header-right">
-        <img src="@/assets/icons/question.svg" alt="avatar" class="avatar-icon" />
+        <img src="@/assets/icons/anti_fraud.svg" alt="avatar" class="anti_fraud-icon" @click="anti"/>
       </div>
     </header>
 
@@ -185,7 +185,11 @@ const goToNews = (item) => {
 }
 
 const goToAllNews = () => {
-  // router.push('/news')
+  router.push('/common-fraud-methods')
+}
+
+const anti = () => {
+  router.push("/anti-fraud-pomption")
 }
 
 // 可選：強化登入驗證（訪客 or 使用者）
@@ -470,4 +474,8 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
+.anti_fraud-icon {
+  width: 45px;
+  height: 45px;
+}
 </style>

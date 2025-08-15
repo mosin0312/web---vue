@@ -1,8 +1,8 @@
 <template>
   <div class="main-container">
     <header class="title-header sticky-header">
-      <img src="@/assets/icons/comeback.svg" alt="Logo" class="header-icon" @click="goBack"/>
-      <span class="header-title">防詐專線</span>
+      <img src="@/assets/icons/comeback.svg" alt="Logo" class="header-icon" @click="goBack" />
+      <span class="header-title">165資訊與回報統計看板</span>
     </header>
 
     <div class="category-buttons">
@@ -17,28 +17,8 @@
     </div>
 
     <section class="content-section">
-      <template v-if="currentTab === '店家資訊'">
-        <div
-          v-for="(store, i) in stores"
-          :key="i"
-          class="store-card"
-        >
-          <div class="store-name">{{ store.name }}</div>
-          <div class="store-contact">
-            <span class="label">電話:</span>
-            <a class="value" :href="`tel:${store.phone}`">{{ store.phone }}</a>
-          </div>
-          <div class="store-contact">
-            <span class="label">電子信箱:</span>
-            <a class="value" :href="`mailto:${store.email}`">{{ store.email }}</a>
-          </div>
-        </div>
-      </template>
-
-      <component
-        v-else
-        :is="tabComponents[currentTab]"
-      />
+      <!-- 動態載入目前分頁對應的元件 -->
+      <component :is="tabComponents[currentTab]" />
     </section>
   </div>
 </template>
@@ -48,35 +28,25 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import Hotline165 from './Hotline165.vue'
 import APPInformation from './APPInformation.vue'
-import UserReports from './UserReports.vue'
-
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const goBack = () => {
-  router.back()
-}
+const goBack = () => router.back()
 
-const tabs = ['店家資訊', '165', 'APP資訊', '使用者回報']
-const currentTab = ref('店家資訊')
+// 分頁標籤
+const tabs = ['165資訊', '回報統計看板']
+const currentTab = ref('165資訊')
 
+// 分頁對應元件
 const tabComponents = {
   '165': Hotline165,
   'APP資訊': APPInformation,
-  '使用者回報': UserReports
 }
 
-const fallbackStores = [
-  { name: '台北便利通', phone: '02-2913-6287', email: 'tpe@example.com' },
-  { name: '中壢生活家', phone: '03-456-7890', email: 'cl@example.com' },
-  { name: '高雄安心店', phone: '07-123-4567', email: 'ks@example.com' },
-  { name: '新竹便利網', phone: '03-123-8888', email: 'hcc@example.com' },
-  { name: '台中安全店', phone: '04-999-4321', email: 'tc@example.com' },
-  { name: '花蓮小站', phone: '03-987-6543', email: 'hl@example.com' },
-  { name: '屏東安心通', phone: '08-222-5566', email: 'pt@example.com' },
-  { name: '基隆服務站', phone: '02-123-7777', email: 'kl@example.com' },
-]
+// ✅ 補上 fallbackStores，避免未定義錯誤（可自行放入預設資料）
+const fallbackStores = []
 
+// 若子元件需要，可透過 props / provide/inject 傳遞；此處先保留載入與備援邏輯
 const stores = ref(fallbackStores)
 
 onMounted(async () => {
@@ -91,9 +61,9 @@ onMounted(async () => {
 })
 </script>
 
+
 <style scoped>
 .main-container {
-  width: 100%;
   height: 100vh;
   max-width: 100%;
   margin: 0 auto;
@@ -132,24 +102,28 @@ onMounted(async () => {
 .category-buttons {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;              /* 稍微加大間距 */
   flex-wrap: wrap;
   margin-top: 10px;
+  padding: 0 12px;        /* 讓大按鈕不會緊貼邊緣 */
 }
 
 .category {
-  padding: 4px 12px;
+  padding: 12px 24px;     /* 加大內距 */
+  min-height: 48px;       /* 提升可點擊面積（無障礙 44px+） */
   border: 2px solid #fbaf8b;
-  border-radius: 100px;
+  border-radius: 999px;   /* 更圓的膠囊外觀 */
   background: #fff;
-  font-size: 14px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  font-size: clamp(15px, 3.5vw, 18px); /* 小螢幕自動縮放 */
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   cursor: pointer;
+  flex: 0 1 auto;         /* 內容決定寬度 */
 }
 
 .category.active {
   background-color: #fbaf8b;
-  color: white;
+  color: #fff;
 }
 
 .content-section {

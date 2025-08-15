@@ -31,7 +31,7 @@ const routes = [
   { path: '/chat', component: ChatMessage },//簡訊畫面
   { path: '/preview', component: WebPreview },//點擊網址後能跳出網頁內容
   {path: '/screenshot',component:ScreenshotAnalysis},//截圖分析
-  {path: '/anti-fraud-helpline',component:AntiFraudHelpline},//防詐專線
+  {path: '/anti-fraud-helpline',component:AntiFraudHelpline},//165 資訊與回報統計看板
   {path: '/common-fraud-methods',component:CommonFraudMethods},//常見詐騙手法
   {path: '/anti-fraud-pomption',component:AntifraudPomotion},//防詐宣導
   {path: '/member-management',component:MemberManagementView,},//會員管理

@@ -78,7 +78,7 @@ export default {
   right: 10px;
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: 35px;
   color: #999;
   cursor: pointer;
 }

@@ -210,8 +210,8 @@ export default {
 }
 
 .icon-container {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
 }
 
 .header-icon {

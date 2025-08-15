@@ -46,12 +46,20 @@
       <button @click="confirmAlert">確定</button>
     </div>
   </div>
+  <AlertModal
+  :visible="modalVisible"
+  :message="modalMessage"
+  @confirm="onModalConfirm"
+  @close="onModalClose"
+/>
+
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import AlertModal from '@/components/AlertModal.vue'
 
 const router = useRouter()
 const fileInput = ref(null)
@@ -62,24 +70,66 @@ const token = localStorage.getItem('userToken')
 const role = localStorage.getItem('userRole')
 const userId = localStorage.getItem('userId')
 
-// ✅ Modal 控制
+/* =========================
+ * Modal（可 await 的 alert/confirm）
+ * ========================= */
 const modalVisible = ref(false)
 const modalMessage = ref('')
-const pendingAction = ref(null)
+const pendingAction = ref(null)        // 舊：用來做導頁等後續動作（選用）
+const modalMode = ref('alert')         // 'alert' | 'confirm'
+const pendingResolve = ref(null)       // 新：回傳 Promise 用
 
-const showAlert = (msg, redirect = false) => {
-  modalMessage.value = msg
+// 只有「確定」的提示（按確定或關閉都 resolve(true)）
+function showAlert(message, redirectToLogin = false) {
+  modalMessage.value = message
+  modalMode.value = 'alert'
   modalVisible.value = true
-  if (redirect) {
-    pendingAction.value = () => router.push('/login')
+  pendingAction.value = redirectToLogin ? (() => router.push('/login')) : null
+  return new Promise((resolve) => { pendingResolve.value = resolve })
+}
+
+// 確認（按確定 resolve(true)，關閉/點背景/X resolve(false)）
+function showConfirm(message) {
+  modalMessage.value = message
+  modalMode.value = 'confirm'
+  modalVisible.value = true
+  pendingAction.value = null
+  return new Promise((resolve) => { pendingResolve.value = resolve })
+}
+
+// AlertModal：按「確定」
+function onModalConfirm() {
+  modalVisible.value = false
+  const r = pendingResolve.value; pendingResolve.value = null
+  r?.(true)
+  // 有設定後續動作（例如登入導頁）就執行
+  if (pendingAction.value) {
+    const act = pendingAction.value
+    pendingAction.value = null
+    act()
   }
 }
-const confirmAlert = () => {
+
+// AlertModal：關閉（點背景 / X）
+function onModalClose() {
   modalVisible.value = false
-  if (pendingAction.value) pendingAction.value()
+  const r = pendingResolve.value; pendingResolve.value = null
+  // alert 視為已讀(true)；confirm 視為取消(false)
+  r?.(modalMode.value === 'alert')
+  if (pendingAction.value) {
+    const act = pendingAction.value
+    pendingAction.value = null
+    act()
+  }
 }
 
-// ✅ 播放（只允許一個、再次點擊關閉）
+/* =============== 工具 =============== */
+const getErr = (err) =>
+  err?.response?.data?.message ??
+  (typeof err?.response?.data === 'string' ? err.response.data : null) ??
+  err?.message ?? '發生未知錯誤'
+
+/* =============== 播放（只允許單一播放器） =============== */
 const playAudio = async (item) => {
   if (item.showPlayer) {
     item.showPlayer = false
@@ -99,11 +149,11 @@ const playAudio = async (item) => {
     }
     item.showPlayer = true
   } catch (err) {
-    alert('音檔載入失敗：' + (err.response?.data || err.message))
+    await showAlert('音檔載入失敗：' + getErr(err))
   }
 }
 
-// ✅ 上傳檔案
+/* =============== 上傳檔案 =============== */
 const triggerUpload = () => fileInput.value?.click()
 
 const handleUpload = async (event) => {
@@ -122,35 +172,34 @@ const handleUpload = async (event) => {
       }
     })
     await fetchAudioList()
-    alert('上傳與分析完成')
+    await showAlert('上傳與分析完成')
   } catch (err) {
-    alert('上傳失敗：' + (err.response?.data || err.message))
+    await showAlert('上傳失敗：' + getErr(err))
   } finally {
     // 允許同一檔名再次選取
     if (fileInput.value) fileInput.value.value = ''
   }
 }
 
-// ✅ 撈取音檔清單（新路徑）
+/* =============== 撈取音檔清單（新路徑） =============== */
 const fetchAudioList = async () => {
   try {
     const res = await axios.get(`/api/Test/user/${userId}/audios`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-    // 加上前端播放需要的欄位（不影響原資料）
     audioFiles.value = (res.data || []).map(x => ({
       ...x,
       showPlayer: false,
       audioUrl: null
     }))
   } catch (e) {
-    alert('沒有分析記錄')
+    await showAlert('沒有分析記錄')
   }
 }
 
-// ✅ 下載最新檔案（API 回檔案串流 → 直接下載）
+/* =============== 下載最新檔案 =============== */
 const downloadLatest = async () => {
-  if (!audioFiles.value.length) return alert('無檔案可下載')
+  if (!audioFiles.value.length) return void (await showAlert('無檔案可下載'))
   const latest = audioFiles.value[0]
   try {
     const res = await axios.get('/api/Test/download-local', {
@@ -167,15 +216,17 @@ const downloadLatest = async () => {
     a.remove()
     URL.revokeObjectURL(blobUrl)
   } catch (err) {
-    alert('下載失敗：' + (err.response?.data || err.message))
+    await showAlert('下載失敗：' + getErr(err))
   }
 }
 
-// ✅ 其他功能
-const showTranscription = (item) => {
-  alert(item.transcription || '尚未有分析文字')
+/* =============== 其他功能 =============== */
+const showTranscription = async (item) => {
+  await showAlert(item.transcription || '尚未有分析文字')
 }
-const remove = (index) => {
+const remove = async (index) => {
+  const ok = await showConfirm('確定要移除此項目？')
+  if (!ok) return
   audioFiles.value.splice(index, 1)
 }
 const getRiskIcon = (isScam) => {
@@ -194,18 +245,21 @@ const formatDuration = (sec) => {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-//  初始化
-onMounted(() => {
+/* =============== 初始化 =============== */
+onMounted(async () => {
   if (!token || role !== 'User') {
-    showAlert('請先登入', true)
+    await showAlert('請先登入', true) // 按「確定」後導到 /login
     return
   }
   if (router.currentRoute.value.query.loggedOut === 'true') {
     router.replace({ query: {} })
   }
-  fetchAudioList()
+  await fetchAudioList()
 })
 </script>
+
+
+
 
 
 <style scoped>

@@ -92,11 +92,12 @@
     />
 
     <AlertModal
-      :visible="showModal"
-      :message="modalMessage"
-      @confirm="handleModalClose"
-      @close="showModal = false"
-    />
+  :visible="showModal"
+  :message="modalMessage"
+  @confirm="onModalConfirm"
+  @close="handleModalClose"
+/>
+
   </div>
 </template>
 
@@ -111,34 +112,73 @@ const router = useRouter()
 const callEntries = ref([])
 const searchQuery = ref('')
 const riskMap = ref({})
+
+// ===== Modal 狀態（支援 await）=====
 const showModal = ref(false)
 const modalMessage = ref('')
 const shouldRedirect = ref(false)
+const modalMode = ref('alert')         // 'alert' | 'confirm'
+const pendingResolve = ref(null)       // 用來 resolve Promise
 
-// 公開/非公開 → 理由 → TypeCode 對照（可依你 DB 需求調整）
+// alert：只有「確定」，關閉也算 true。第二參數保留相容舊寫法(布林)。
+function showAlert(message, redirectToHomeOrOptions = false) {
+  const redirectToHome = typeof redirectToHomeOrOptions === 'boolean'
+    ? redirectToHomeOrOptions
+    : !!redirectToHomeOrOptions?.redirectToHome
+
+  modalMessage.value = message
+  modalMode.value = 'alert'
+  showModal.value = true
+  shouldRedirect.value = redirectToHome
+
+  return new Promise((resolve) => { pendingResolve.value = resolve })
+}
+
+// 按「確定」
+function onModalConfirm() {
+  showModal.value = false
+  const r = pendingResolve.value; pendingResolve.value = null
+  r?.(true)
+
+  if (shouldRedirect.value) {
+    router.push({ path: '/', query: {}, replace: true })
+    shouldRedirect.value = false
+  }
+}
+
+// 關閉（點背景 / X / 子元件自動 close）
+function handleModalClose() {
+  showModal.value = false
+  const r = pendingResolve.value; pendingResolve.value = null
+  // alert 視同已讀(true)；confirm 視為取消(false)
+  r?.(modalMode.value === 'alert')
+
+  if (shouldRedirect.value) {
+    router.push({ path: '/', query: {}, replace: true })
+    shouldRedirect.value = false
+  }
+}
+
+// 公開/非公開 → 理由 → TypeCode 對照
 const TYPE_CODE = {
   '公開': {
     '一接就掛': 101,
     '詐騙': 102,
     '推銷/廣告': 103,
     '騷擾': 104,
-    '其他': 199,
-  },
+    '其他': 199 },
   '非公開': {
     '舊情人': 201,
     '家庭內部衝突': 202,
     '語言不通無法溝通': 203,
     '個人情感問題': 204,
-    '其他': 299,
-  },
+    '其他': 299 },
 }
 
 function getUserIdFromLocalOrToken() {
-  // 先看 localStorage（登入時可先存好）
   const stored = localStorage.getItem('userId') ?? localStorage.getItem('UserId')
   if (stored && Number.isFinite(+stored)) return +stored
 
-  // 再看 JWT（Base64URL → Base64）
   const t = localStorage.getItem('userToken')
   if (!t) return null
   try {
@@ -147,37 +187,16 @@ function getUserIdFromLocalOrToken() {
     const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/')
     const json = atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='))
     const payload = JSON.parse(json)
-
-    // 你後端就是這個鍵
     const id = payload.userId ?? payload.UserId
     return Number.isFinite(+id) ? +id : null
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
-
-
-
 
 // ===== 黑名單：長按狀態 =====
 const pressTimer = ref(null)
 const pressThreshold = 600 // 毫秒（長按判定）
 const showBlacklist = ref(false)
 const selectedEntry = ref({ number: '', name: '' })
-
-function showAlert(message, redirectToHome = false) {
-  modalMessage.value = message
-  showModal.value = true
-  shouldRedirect.value = redirectToHome
-}
-function handleModalClose() {
-  showModal.value = false
-  if (shouldRedirect.value) {
-    // 跳回登入並清除 query 參數
-    router.push({ path: '/', query: {}, replace: true })
-    shouldRedirect.value = false
-  }
-}
 
 const filteredCallEntries = computed(() => {
   return callEntries.value
@@ -249,83 +268,107 @@ function onPressEnd() {
   clearTimeout(pressTimer.value)
 }
 
-// ====== 黑名單確認：儲存並導頁 ======
+// 本地黑名單 upsert：若已存在該號碼→覆蓋（保留舊 createdAt），否則新增
+function upsertLocalBlacklist({ phone, name, scope, reason, note }) {
+  const key = 'blacklist'
+  const list = JSON.parse(localStorage.getItem(key) || '[]')
+  const idx = list.findIndex(x => x.number === phone)
+  const now = Date.now()
+
+  if (idx >= 0) {
+    const old = list[idx]
+    list[idx] = {
+      number: phone,
+      name: name || old.name || '',
+      scope,                                  // '公開' | '非公開'
+      reason: reason || '其他',
+      note: (note || '').trim(),
+      createdAt: old.createdAt || now         // 保留原時間
+    }
+  } else {
+    list.unshift({
+      number: phone,
+      name: name || '', scope, reason: reason || '其他',
+      note: (note || '').trim(),
+      createdAt: now
+    })
+  }
+
+  localStorage.setItem(key, JSON.stringify(list))
+}
+
+// ====== 黑名單確認：儲存（create），已存在就改成更新（update） ======
 async function handleBlacklistConfirm(payload) {
   // payload = { scope: '公開' | '非公開', reason: '...', note: '...' }
   const phone = selectedEntry.value.number
   const name = selectedEntry.value.name || ''
 
-  // 1) 取得並轉成整數 ID（路線 A）
+  // 1) 取得並驗證 userId / token
   const userId = getUserIdFromLocalOrToken()
-if (!Number.isFinite(userId)) {
-  showAlert('找不到使用者資訊或格式錯誤（需要整數 ID），請重新登入', true)
-  return
-}
-
-
-  // 2) 取得 token
+  if (!Number.isFinite(userId)) {
+    await showAlert('找不到使用者資訊或格式錯誤（需要整數 ID），請重新登入', true)
+    return
+  }
   const token = localStorage.getItem('userToken')
   if (!token) {
-    showAlert('請先登入', true)
+    await showAlert('請先登入', true)
     return
   }
 
-  // 3) 對照 TypeCode（沒對到就落到「其他」）
+  // 2) 轉換 TypeCode（後端目前是 string）
   const codeTable = TYPE_CODE[payload.scope] || {}
-  const typeCode = codeTable[payload.reason] ?? codeTable['其他'] ?? 999
+  const typeCode = String(codeTable[payload.reason] ?? codeTable['其他'] ?? 999)
+  const extraText = (payload.note || '').trim() || payload.reason || ''
 
   try {
-    // 4) 呼叫後端 API
+    // 3) 先嘗試建立
     const body = {
-      UserId: userId,                              // ← int
+      UserId: userId,                // int
       PhoneNumber: phone,
-      TypeCode: String(typeCode),                          
-      ExtraText: (payload.note || '').trim() || payload.reason || ''
-    }
-
-    console.log('[create body]', body, {
-    typeof_UserId: typeof body.UserId,
-    typeof_TypeCode: typeof body.TypeCode,
-    typeof_ExtraText: typeof body.ExtraText
-  })
+      TypeCode: typeCode, ExtraText: extraText }
 
     await axios.post('/api/Test/create', body, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
     })
 
-    // 5) 成功後，同步寫回 localStorage 給 BlacklistView 使用
-    const key = 'blacklist'
-    const list = JSON.parse(localStorage.getItem(key) || '[]')
-
-    const createdAt = Date.now()
-    const item = {
-      number: phone,
-      name,
-      scope: payload.scope,                 // '公開' 或 '非公開'
-      reason: payload.reason || '其他',
-      note: (payload.note || '').trim(),
-      createdAt
-    }
-
-    const idx = list.findIndex(x => x.number === phone)
-    if (idx >= 0) list.splice(idx, 1)
-    list.unshift(item)
-    localStorage.setItem(key, JSON.stringify(list))
-
+    // 建立成功 → 同步本地、關閉黑名單、提示
+    upsertLocalBlacklist({ phone, name, scope: payload.scope,
+      reason: payload.reason,
+      note: payload.note
+    })
     showBlacklist.value = false
+    await showAlert('成功儲存')
   } catch (err) {
-    console.error('建立黑名單失敗', err)
+    const status = err?.response?.status
+    const msg = err?.response?.data?.message || ''
 
-    // 針對常見錯誤做更友善提示
-    if (err?.response?.status === 401) {
-      showAlert('登入已失效，請重新登入', true)
+    // 已存在 → 更新
+    if (status === 400 && /已經儲存過/.test(msg)) {
+      try {
+        const updateBody = {
+          UserId: userId,
+          PhoneNumber: phone, TypeCode: typeCode, ExtraText: extraText }
+        await axios.post('/api/Test/UpdatePhone', updateBody, {
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+        })
+
+        upsertLocalBlacklist({ phone, name, scope: payload.scope, reason: payload.reason, note: payload.note })
+        showBlacklist.value = false
+        await showAlert('你已回報過此號碼，已更新為最新理由')
+      } catch (err2) {
+        console.error('更新失敗', err2)
+        const s2 = err2?.response?.status
+        if (s2 === 401) return void await showAlert('登入已失效，請重新登入', true)
+        if (s2 === 404) return void await showAlert('找不到資料（後端），請稍後再試或重新整理')
+        const m2 = err2?.response?.data?.message || '更新失敗，請稍後再試'
+        await showAlert(m2)
+      }
       return
     }
-    if (err?.response?.status === 400) {
-      // 從 ASP.NET Core ModelState 萃取錯誤訊息
+
+    // 其他常見錯誤
+    if (status === 401) return void await showAlert('登入已失效，請重新登入', true)
+    if (status === 400) {
       const errors = err?.response?.data?.errors
       if (errors && typeof errors === 'object') {
         const msgs = []
@@ -333,21 +376,17 @@ if (!Number.isFinite(userId)) {
           const arr = errors[k]
           if (Array.isArray(arr)) msgs.push(...arr)
         }
-        if (msgs.length) {
-          showAlert(`送出資料有誤：\n- ${msgs.join('\n- ')}`)
-          return
-        }
+        if (msgs.length) return void await showAlert(`送出資料有誤：\n- ${msgs.join('\n- ')}`)
       }
-      showAlert('送出資料有誤，請檢查欄位內容')
-      return
+      return void await showAlert('送出資料有誤，請檢查欄位內容')
     }
-    if (err?.response?.status === 500) {
-      showAlert('資料庫錯誤，請稍後再試')
-      return
-    }
-    showAlert('儲存失敗，請稍後再試')
+    if (status === 500) return void await showAlert('資料庫錯誤，請稍後再試')
+
+    console.error('建立黑名單失敗', err)
+    await showAlert('儲存失敗，請稍後再試')
   }
 }
+
 
 
 
@@ -358,7 +397,7 @@ onMounted(() => {
   const token = localStorage.getItem('userToken')
   const role = localStorage.getItem('userRole')
   if (!token || role !== 'User') {
-    showAlert('請先登入', true) //  只提示，等使用者按下「確定」再跳轉
+    showAlert('請先登入', true) // 等使用者按「確定」再跳轉
   return
   }
 
@@ -404,6 +443,9 @@ onMounted(() => {
   }
 })
 </script>
+
+
+
 
 <style scoped>
 .call-history-page {

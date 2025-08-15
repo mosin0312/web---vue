@@ -26,39 +26,34 @@
       </div>
 
       <!-- Step 2：理由（依 scope 切換） -->
-      <div class="bl-card">
-        <div class="bl-card-title">{{ form.scope }}</div>
+<div class="bl-card">
+  <div class="bl-card-title">{{ form.scope }}</div>
 
-        <div class="bl-options">
-          <template v-if="form.scope === '公開'">
-            <label v-for="opt in publicOptions" :key="opt" class="bl-option">
-              <input type="radio" name="reason" :value="opt" v-model="form.reason" />
-              <span>{{ opt }}</span>
-            </label>
-          </template>
+  <div class="bl-options">
+    <label v-for="opt in reasonOptions" :key="opt" class="bl-option">
+      <input type="radio" name="reason" :value="opt" v-model="form.reason" />
+      <span>{{ opt }}</span>
+    </label>
 
-          <template v-else>
-            <label v-for="opt in privateOptions" :key="opt" class="bl-option">
-              <input type="radio" name="reason" :value="opt" v-model="form.reason" />
-              <span>{{ opt }}</span>
-            </label>
-          </template>
-
-          <!-- 其他 -->
-          <label class="bl-option">
-            <input type="radio" name="reason" value="其他" v-model="form.reason" />
-            <span>其他</span>
-          </label>
-
-          <input
-            class="bl-input"
-            placeholder="補充說明（最多 30 字）"
-            v-model="form.note"
-            :maxlength="30"
-          />
-          <div class="bl-hint">最多 30 字元，不得空白</div>
-        </div>
-      </div>
+    <!-- 補充說明：只有「其他」時可輸入，且必填 -->
+    <input
+      class="bl-input"
+      v-model="form.note"
+      :maxlength="30"
+      :disabled="!canEditNote"
+      :placeholder="canEditNote
+        ? '請填寫補充說明（必填，最多 30 字）'
+        : '選擇「其他」才可填寫'"
+    />
+    <div
+      v-if="canEditNote"
+      class="bl-hint"
+      :class="{ 'bl-hint--error': !form.note.trim() }"
+    >
+      {{ form.note.trim() ? `還可輸入 ${30 - form.note.length} 字` : '補充說明不得空白' }}
+    </div>
+  </div>
+</div>
 
       <!-- 底部按鈕 -->
       <div class="bl-actions">
@@ -70,7 +65,7 @@
 </template>
 
 <script setup>
-import { reactive, watch } from 'vue'
+import { reactive, watch, computed } from 'vue'
 
 /* eslint-disable no-undef */
 const props = defineProps({
@@ -86,6 +81,16 @@ const form = reactive({
   note: ''
 })
 
+// ★ 選項加入「其他」
+const publicOptions = ['一接就掛', '詐騙', '推銷/廣告', '騷擾', '其他']
+const privateOptions = ['舊情人', '家庭內部衝突', '語言不通無法溝通', '個人情感問題', '其他']
+
+// 依 scope 切換理由選項
+const reasonOptions = computed(() => (form.scope === '公開' ? publicOptions : privateOptions))
+// 只有選「其他」才開放輸入備註
+const canEditNote = computed(() => form.reason === '其他')
+
+// 開啟時重置表單
 watch(
   () => props.visible,
   (v) => {
@@ -97,26 +102,38 @@ watch(
   }
 )
 
-const publicOptions = ['一接就掛', '詐騙', '推銷/廣告', '騷擾']
-const privateOptions = ['舊情人', '家庭內部衝突', '語言不通無法溝通', '個人情感問題']
+// 只要理由不是「其他」就清空備註
+watch(
+  () => form.reason,
+  (val) => {
+    if (val !== '其他') form.note = ''
+  }
+)
 
 function onClose() {
   emits('close')
 }
 
 function onConfirm() {
-  const finalNote = (form.note || '').trim()
-  if (!form.reason && !finalNote) {
-    alert('請選擇理由或填寫補充說明')
+  if (!form.reason) {
+    alert('請先選擇理由')
     return
   }
-  emits('confirm', {
-    scope: form.scope,
-    reason: form.reason || '其他',
-    note: finalNote
-  })
+  if (form.reason === '其他') {
+    const finalNote = (form.note || '').trim()
+    if (!finalNote) {
+      alert('已選擇「其他」，請輸入補充說明')
+      return
+    }
+    emits('confirm', { scope: form.scope, reason: '其他', note: finalNote })
+    return
+  }
+  // 非「其他」：note 一律清空
+  emits('confirm', { scope: form.scope, reason: form.reason, note: '' })
 }
+
 </script>
+
 
 
 <style scoped>
@@ -153,4 +170,5 @@ function onConfirm() {
 .bl-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 .bl-btn { padding: 10px 16px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; background: #6f9cff; color: #fff; }
 .bl-btn.ghost { background: #ececec; color: #333; }
+.bl-hint--error { color: #d32f2f; }
 </style>

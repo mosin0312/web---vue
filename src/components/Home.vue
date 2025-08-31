@@ -11,6 +11,14 @@
       </div>
     </header>
 
+    <!--測試跳轉用，之後刪掉 -->
+<button @click="$router.push('/member-management')" class="test-btn">
+  測試跳轉到 ChatMessage.vue
+</button>
+<!--測試跳轉用，之後刪掉 -->
+
+
+
     <!-- Notification -->
     <section class="notification-bar">
       <img src="@/assets/icons/notification.svg" alt="通知" class="notification-icon" />
@@ -478,4 +486,16 @@ onUnmounted(() => {
   width: 45px;
   height: 45px;
 }
+
+/**測試跳轉用，之後刪掉 */
+.test-btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #007aff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+/**測試跳轉用，之後刪掉 */
 </style>

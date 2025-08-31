@@ -85,6 +85,20 @@ const passwordRef = ref(null);
 const emailRef = ref(null);
 const captchaRef = ref(null);
 
+function base64UrlToStr(s){
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = s.length % 4 ? 4 - (s.length % 4) : 0;
+  return atob(s + '='.repeat(pad));
+}
+function getUserIdFromToken(token){
+  if(!token) return null;
+  try{
+    const payload = JSON.parse(base64UrlToStr(token.split('.')[1] || ''));
+    // 你的 JWT claim 通常是 "UserId"
+    return payload.UserId ?? payload.userId ?? null;
+  }catch{ return null; }
+}
+
 // 顯示提示
 function showAlert(message, redirect = false) {
   modalMessage.value = message;
@@ -233,14 +247,28 @@ async function submitForm() {
       });
 
       if (res.data.status === 'Success') {
-        localStorage.setItem('userToken', res.data.token);
-        localStorage.setItem('userRole', 'User');
-        localStorage.setItem('justLoggedIn', 'true');
-        localStorage.setItem('userEmail', email.value);
-        showAlert('登入成功！', true);
-      } else {
-        showAlert(res.data.message || '登入失敗');
-      }
+  localStorage.setItem('userToken', res.data.token);
+  localStorage.setItem('userRole', 'User');
+  localStorage.setItem('justLoggedIn', 'true');
+  localStorage.setItem('userEmail', email.value);
+
+  // ✅ 解析 token 取得 UserId 並存起來
+  const uid = getUserIdFromToken(res.data.token);
+  if (uid != null) {
+    localStorage.setItem('userId', String(uid));
+  } else {
+    // 若後端也有回傳 userId，可做備援
+    if (res.data.userId != null) {
+      localStorage.setItem('userId', String(res.data.userId));
+    } else {
+      console.warn('無法從 token 解析 userId，且回應中沒有 userId 欄位');
+    }
+  }
+
+  showAlert('登入成功！', true);
+} else {
+  showAlert(res.data.message || '登入失敗');
+}
     } catch (err) {
       if (err.response?.status === 401) {
         const newToken = await getGuestToken();

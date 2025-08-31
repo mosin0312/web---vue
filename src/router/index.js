@@ -22,6 +22,7 @@ import AudioAnalysisView from '@/components/AudioAnalysisView.vue'
 import BlacklistView from '@/components/BlacklistView.vue'
 import APPInformation from '@/components/APPInformation.vue'
 import UserReports from '@/components/UserReports.vue'
+import SuspectedFraudInformation from '@/components/SuspectedFraudInformation.vue'
 
 const routes = [
   { path: '/', component: LoginView },//登入
@@ -46,7 +47,8 @@ const routes = [
   {path:'/audio-analysis',component:AudioAnalysisView},//錄音分析
   {path:'/blacklist',component:BlacklistView},//黑名單
   {path:'/appinfo',component:APPInformation},
-  {path:'/userreport',component:UserReports}
+  {path:'/userreport',component:UserReports},
+  {path:'/suspectedfraudinfo',component:SuspectedFraudInformation}
 ]
 
 const router = createRouter({

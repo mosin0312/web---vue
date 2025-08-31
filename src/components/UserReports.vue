@@ -7,8 +7,7 @@
     </header>
     <!-- 兩個主按鈕 -->
     <section class="suspicious-buttons">
-      <button class="suspicious-button suspicious-scam">疑似詐騙資訊</button>
-      <button class="suspicious-button suspicious-wrong">疑似資訊有誤</button>
+      <button class="suspicious-button suspicious-scam" @click="goTosuspectedfraudinfo">疑似詐騙資訊</button>
       <button class="suspicious-button report">查看回報</button>
     </section>
   </div>
@@ -21,6 +20,7 @@
 import { useRouter } from 'vue-router'
 const router = useRouter()
 const goBack = () => router.back()
+const goTosuspectedfraudinfo = () => router.push('/suspectedfraudinfo')
 </script>
 
 <style scoped>

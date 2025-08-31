@@ -81,7 +81,7 @@ const form = reactive({
   note: ''
 })
 
-// ★ 選項加入「其他」
+//  選項加入「其他」
 const publicOptions = ['一接就掛', '詐騙', '推銷/廣告', '騷擾', '其他']
 const privateOptions = ['舊情人', '家庭內部衝突', '語言不通無法溝通', '個人情感問題', '其他']
 

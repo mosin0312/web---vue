@@ -12,14 +12,21 @@ module.exports = {
         changeOrigin: true,
       },
       '/api': {
-        target: 'https://192.168.217.211:7050',//192.168.217.211之前
+        target: 'https://localhost:7050',//主機
         changeOrigin: true,
         secure: false, // 因為是自簽 HTTPS
     },
-//     '/whisper': {
-//   target: 'http://192.168.0.16:5000',
-//   changeOrigin: true
-// },
+      "/api/Test": {
+        target: "http://localhost:5003",
+        changeOrigin: true,
+        secure: false,
+        
+    },
+    // '/api': {
+    //     target: 'https://192.168.217.211:7050',// 這裡是 nginx 的 port
+    //     changeOrigin: true,
+    //     secure: false, // 因為是自簽 HTTPS
+    // },
   }
   }
 };

@@ -1,10 +1,15 @@
 <template>
 <div class="transparent-wrapper">
   <div class="main-container">
+    <header class="title-header sticky-header">
+      <img src="@/assets/icons/comeback.svg" alt="Logo" class="header-icon" @click="goBack" />
+      <span class="header-title">問題回報</span>
+    </header>
     <!-- 兩個主按鈕 -->
     <section class="suspicious-buttons">
       <button class="suspicious-button suspicious-scam">疑似詐騙資訊</button>
       <button class="suspicious-button suspicious-wrong">疑似資訊有誤</button>
+      <button class="suspicious-button report">查看回報</button>
     </section>
   </div>
   </div>
@@ -12,18 +17,47 @@
 
 <script setup>
 // 可加上按鈕點擊事件，例如 emit 或跳轉
+
+import { useRouter } from 'vue-router'
+const router = useRouter()
+const goBack = () => router.back()
 </script>
 
 <style scoped>
 .main-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
   height: 100vh;
   max-width: 100%;
   margin: 0 auto;
-  font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  background: linear-gradient(180deg, #fffcb3, #ffffff);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.title-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: #fff;
+  border-bottom: 1px solid #eee;
+  z-index: 10;
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  background: white;
+}
+
+.header-icon {
+  width: 40px;
+  height: 40px;
+  margin-right: 12px;
+}
+
+.header-title {
+  font-size: 20px;
+  font-weight: bold;
 }
 
 /* 主按鈕區 */
@@ -61,6 +95,10 @@
 
 .suspicious-wrong {
   background-color: #ffb84d;
+}
+
+.report{
+  background-color: #4d9dff;
 }
 
 .transparent-wrapper {

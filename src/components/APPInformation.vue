@@ -5,40 +5,59 @@
     <div class="header-row">
       <div class="col">電話號碼</div>
       <div class="col">回報原因</div>
-      <div class="col">回報數</div>
     </div>
     <div class="divider"></div>
 
-    <!-- 資料列表 -->
-    <div
-      class="data-row"
-      v-for="(item, index) in appInfoList"
-      :key="index"
-    >
-      <div class="col">{{ item.phone }}</div>
-      <div class="col">{{ item.reason }}</div>
-      <div class="col">{{ item.count }}</div>
-    </div>
+   <!-- 資料列表 -->
+<div v-if="appInfoList.length > 0">
+  <div
+    class="data-row"
+    v-for="(item, index) in appInfoList"
+    :key="index"
+  >
+    <div class="col">{{ item.phone }}</div>
+    <div class="col">{{ item.reason }}</div>
   </div>
+</div>
+<div v-else class="no-data">目前沒有公開回報資料，請確認是否已登入</div>
+
   </div>
+</div>
 </template>
 
 <script setup>
-const appInfoList = [
-  { phone: '0912-345-678', reason: '一接就掛', count: 17 },
-  { phone: '0933-111-222', reason: '疑似詐騙', count: 25 },
-  { phone: '0966-888-000', reason: '一接就掛', count: 13 },
-  { phone: '0987-654-321', reason: '推銷電話', count: 9 },
-  { phone: '0910-000-111', reason: '假冒親友', count: 31 },
-  { phone: '0966-878-000', reason: '推銷電話', count: 13 },
-  { phone: '0987-644-321', reason: '推銷電話', count: 9 },
-  { phone: '0910-010-111', reason: '假冒親友', count: 31 }
-]
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
+
+// ✅ 資料列表
+const appInfoList = ref([])
+
+// ✅ 取得 Token（使用者登入後儲存在 localStorage）
+const token = localStorage.getItem('userToken')
+
+// ✅ onMounted 時呼叫 API
+onMounted(async () => {
+  try {
+    const response = await axios.get('/api/PhoneReports/public', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    // ✅ 處理資料：取出 PhoneNumber 與 ExtraText
+    appInfoList.value = response.data.map(item => ({
+      phone: item.phoneNumber,
+      reason: item.extraText || '未提供原因'
+    }))
+  } catch (error) {
+    console.error('取得公開電話資料失敗:', error)
+  }
+})
 </script>
+
 
 <style scoped>
 .main-container {
-  width: 100%;
   height: 100vh;
   max-width: 100%;
   margin: 0 auto;
@@ -87,5 +106,10 @@ const appInfoList = [
   height: 100%;
   padding: 12px;
   box-sizing: border-box;
+}
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #666;
 }
 </style>

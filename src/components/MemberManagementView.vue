@@ -23,7 +23,7 @@
 
     <section class="extra-options">
       <button class="option-blacklist" @click="goToBlackList">黑名單查看</button>
-      <button class="option-question">問題回報</button>
+      <button class="option-question" @click="goToQ">問題回報</button>
     </section>
   </div>
 
@@ -164,6 +164,8 @@ function handleEdit(label) {
 
 const goToDeleteAccount = () => router.push('/delete-account')
 const goToBlackList = () => router.push('/blacklist')
+const goToQ = () => router.push('/userreport')
+
 
 // ──────────────── 初始化驗證 ────────────────
 onMounted(() => {

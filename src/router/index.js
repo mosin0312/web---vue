@@ -20,6 +20,8 @@ import PhoneCard from '@/components/PhoneCard.vue'
 import SearchResults from '@/components/SearchResults.vue'
 import AudioAnalysisView from '@/components/AudioAnalysisView.vue'
 import BlacklistView from '@/components/BlacklistView.vue'
+import APPInformation from '@/components/APPInformation.vue'
+import UserReports from '@/components/UserReports.vue'
 
 const routes = [
   { path: '/', component: LoginView },//登入
@@ -42,7 +44,9 @@ const routes = [
   {path: '/phonecard',component:PhoneCard},//通話紀錄
   {path: '/search-phone',component:SearchResults},//電話搜尋結果
   {path:'/audio-analysis',component:AudioAnalysisView},//錄音分析
-  {path:'/blacklist',component:BlacklistView}//黑名單
+  {path:'/blacklist',component:BlacklistView},//黑名單
+  {path:'/appinfo',component:APPInformation},
+  {path:'/userreport',component:UserReports}
 ]
 
 const router = createRouter({

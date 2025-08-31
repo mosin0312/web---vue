@@ -24,6 +24,7 @@
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+const goBack = () => router.back()
 
 function goTo(path) {
   router.push(path)

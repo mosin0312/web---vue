@@ -16,9 +16,9 @@
 
     <section class="info-section">
       <p class="info-title">165全民防騙FB</p>
-      <p><span class="label">連結: </span><a href="https://www.facebook.com/" class="link" target="_blank">Facebook</a></p>
+      <p><span class="label">連結: </span><a href="https://www.facebook.com/165bear/" class="link" target="_blank">Facebook</a></p>
       <p><span class="label">內政部警政署全球資訊網連結: </span><a href="https://www.npa.gov.tw/" class="link" target="_blank">內政部警政署全球資訊網</a></p>
-      <p><span class="label">刑事局官網連結: </span><a href="https://www.cib.gov.tw/" class="link" target="_blank">內政部警政署刑事警察局全球資訊網</a></p>
+      <p><span class="label">刑事局官網連結: </span><a href="https://www.cib.npa.gov.tw/ch/index" class="link" target="_blank">內政部警政署刑事警察局全球資訊網</a></p>
     </section>
 
     <!-- Modal 預覽圖片 -->
@@ -40,12 +40,12 @@ const showModal = ref(false)
 
 <style scoped>
 .main-container {
-  width: 300px;
+  height: 100vh;
+  max-width: 100%;
   margin: 0 auto;
-  font-family: irohamaru, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .title-section {
@@ -53,7 +53,7 @@ const showModal = ref(false)
 }
 
 .title {
-  font-size: 18px;
+  font-size: 25px;
   font-weight: bold;
   color: #000;
 }
@@ -64,19 +64,17 @@ const showModal = ref(false)
 }
 
 .screenshot {
-  width: 150px;
-  height: 188px;
-  object-fit: cover;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: transform 0.2s;
+  width: 100%;
+  height: auto;
+  max-height: 80vh;
+  object-fit: contain;
 }
 .screenshot:hover {
   transform: scale(1.02);
 }
 
 .info-section {
-  font-size: 14px;
+  font-size: 20px;
   line-height: 1.6;
   color: #000;
 }
@@ -87,7 +85,7 @@ const showModal = ref(false)
 }
 
 .label {
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .link {
@@ -110,8 +108,8 @@ const showModal = ref(false)
 }
 
 .modal-image {
-  max-width: 90%;
-  max-height: 90%;
+  max-width: 90vw;
+  max-height: 90vh;
   border-radius: 8px;
 }
 

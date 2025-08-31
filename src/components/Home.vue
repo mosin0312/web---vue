@@ -55,32 +55,35 @@
   </div>
 </section>
 
-    <!-- News Section -->
     <section class="news-section">
-      <div class="section-header">
-        <h2 class="section-title">相關資訊</h2>
-        <div class="view-all" @click="goToAllNews">
-          查看更多新聞
-        </div>
-      </div>
-
-      <div class="news-list">
-  <div v-for="(item, index) in newsList.slice(0, 5)" :key="index" class="news-card">
-    <img :src="item.imageUrl" class="news-image" />
-    <div class="news-content">
-      <div class="news-title">{{ item.title }}</div>
-      <div class="news-description">{{ item.description }}</div>
-      <div class="news-footer">
-        <span class="news-date">{{ item.pubDate }}</span>
-        <span class="news-link" @click="goToNews(item)">查看內容</span>
-      </div>
-    </div>
+  <div class="section-header">
+    <h2 class="section-title">相關資訊</h2>
+    <div class="view-all" @click="goToAllNews">查看更多新聞</div>
   </div>
-</div>
-    </section>
+
+  <ul class="news-list">
+    <li v-for="item in newsList.slice(0,5)" :key="item.link || item.title" class="news-item">
+      <div class="news-row">
+        <!-- 可選縮圖 -->
+        <img v-if="item.imageUrl"  :src="item.imageUrl" :alt="item.title" class="news-thumb" loading="lazy" @error="onImgError"/>
+
+        <div class="news-main">
+          <div class="news-title" :title="item.title">{{ item.title }}</div>
+          <div class="news-meta">
+            <span class="news-date">{{ item.pubDateText || item.time || '' }}</span>
+            <span v-if="item.source" class="news-source">・{{ item.source }}</span>
+          </div>
+          <div v-if="item.description" class="news-desc">{{ item.description }}</div>
+        </div>
+
+        <button class="news-action" @click="goToNews(item)">查看內容</button>
+      </div>
+    </li>
+  </ul>
+</section>
 
 <AlertModal
-  v-if="showLoginModal"  message="請先登入會員才能使用此功能"  @close="showLoginModal = false"/>
+  v-if="showLoginModal"  @close="showLoginModal = false"/>
   </div>
 </template>
 
@@ -177,9 +180,14 @@ const fetchNews = async () => {
     })
 
     if (response.data?.news) {
-      newsList.value = response.data.news.sort(
-        (a, b) => new Date(b.pubDate) - new Date(a.pubDate)
-      )
+      newsList.value = response.data.news
+        .map(n => ({
+          ...n,
+          pubDateText: n.pubDate || n.time || '',       // 統一日期鍵
+          imageUrl: n.imageUrl || n.image || null,      // 統一圖片鍵
+          description: n.description || '',             // 有些來源可能無描述
+        }))
+        .sort((a, b) => new Date(b.pubDateText) - new Date(a.pubDateText))
     }
   } catch (error) {
     console.error('取得新聞失敗:', error)
@@ -236,266 +244,103 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.main-container {
-  width: 100%;
-  height: 100vh;
-  font-family: 'Inter', sans-serif;
-  background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 16px;
-  box-sizing: border-box;
-  position: relative; 
+/* ===== Layout base ===== */
+.main-container{
+  width:100%; height:100vh; font-family:'Inter',sans-serif;
+  background:linear-gradient(180deg,#d4d8fa 0%,#ffffff 100%);
+  display:flex; flex-direction:column; align-items:center;
+  padding:0 16px; box-sizing:border-box; position:relative;
 }
 
-.header {
-  display: flex;
-  max-width: 100%;
-  padding: 8px 16px; 
-  margin: 0 -16px; /* 抵消 main-container 的 padding 使 header 貼齊左右邊緣 */
-  width: calc(100% + 32px); /* 讓 header 撐滿整個視圖 */
-  justify-content: space-between; /*調整標題文字位置*/
-  align-items: center;
-  gap: 10px;
-  background: #fff;              /* 白底 */
-  margin-bottom: 20px;
-  /*新增置頂設定 */
-  position: sticky;
-  top: 0;
-  z-index: 10; /* 確保在其他區塊上層 */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 陰影區分層次 */
-  
+/* Header */
+.header{
+  display:flex; max-width:100%; padding:8px 16px;
+  margin:0 -16px; width:calc(100% + 32px);
+  justify-content:space-between; align-items:center; gap:10px;
+  background:#fff; margin-bottom:20px; position:sticky; top:0; z-index:10;
+  box-shadow:0 2px 6px rgba(0,0,0,.1);
+}
+.header-left{ display:flex; align-items:center; gap:6px; }
+.page-title{ color:#000; font-family:Inter,sans-serif; font-size:20px; font-weight:700; margin:0; }
+.header-icon{ width:40px; height:40px; }
+
+/* Notification (保留) */
+.notification-bar{
+  display:flex; align-items:center; background:#fff; border-radius:12px;
+  box-shadow:0 2px 6px rgba(0,0,0,.15); width:100%; max-width:100%;
+  height:40px; padding:8px 12px; margin-bottom:20px;
+}
+.notification-icon{ width:40px; height:40px; margin-right:8px; }
+.notification-text{ font-weight:500; color:#888; font-size:18px; }
+
+/* Carousel (保留) */
+.carousel{ position:relative; width:100%; max-width:100%; margin-bottom:16px; cursor:grab; }
+.carousel-wrapper{ position:relative; width:100%; height:180px; overflow:hidden; border-radius:12px; }
+.carousel-image{ width:100%; height:100%; background-size:cover; background-position:center; border-radius:12px; transition:background-image .3s ease-in-out; }
+.carousel-caption{
+  position:absolute; bottom:12px; left:16px; right:16px; background:rgba(0,0,0,.4);
+  color:#fff; padding:6px 12px; border-radius:6px; font-size:14px; animation:fadeIn .6s ease-in-out;
+}
+@keyframes fadeIn{ from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+.arrow{ position:absolute; top:50%; transform:translateY(-50%); background-color:rgba(255,255,255,.5); border:none; font-size:25px; padding:8px; cursor:pointer; z-index:2; border-radius:50%; }
+.arrow.left{ left:8px; } .arrow.right{ right:8px; }
+.carousel-dots{ display:flex; justify-content:center; margin-top:8px; }
+.dot{ width:8px; height:8px; background:#ccc; border-radius:50%; margin:0 3px; }
+.dot.active{ background:#000; }
+
+/* ===== News section ===== */
+.news-section{ margin-top:20px; width:100%; height:100%; background-size:cover; background-position:center; }
+.section-header{ display:flex; justify-content:space-between; align-items:center; }
+.section-title{ font-size:20px; font-weight:bold; }
+.view-all{ font-size:20px; color:#0063f9; display:flex; align-items:center; cursor:pointer; }
+.arrow-icon{ width:12px; height:12px; margin-left:4px; }
+
+/* ---- UL/LI 列表版（建議使用） ---- */
+.news-list{
+  list-style:none; padding:0; margin:10px 0 0;
+  display:flex; flex-direction:column; gap:12px;
+}
+.news-list > li{ list-style:none; }
+
+.news-item{
+  position:relative;
+  background:#eef3ff; border-radius:10px;
+  padding:12px 88px 12px 12px; /* 右側為按鈕預留空間 */
+}
+.news-row{ display:flex; justify-content:space-between; align-items:stretch; gap:12px; }
+.news-main{ flex:1; min-width:0; }
+
+/* 縮圖（若需要） */
+.news-thumb{ width:90px; height:150px; border-radius:6px; object-fit:cover; flex-shrink:0; }
+
+/* 兩行截斷：標題 / 描述（含舊 .news-description 別名） */
+.news-title,
+.news-desc,
+.news-description{
+  display:-webkit-box; -webkit-box-orient:vertical; box-orient:vertical;
+  overflow:hidden; line-height:1.5; -webkit-line-clamp:2; line-clamp:2;
+}
+.news-title{ font-size:16px; font-weight:700; max-height:calc(1.5em * 2); }
+.news-desc, .news-description{ margin-top:6px; font-size:14px; max-height:calc(1.5em * 2); }
+
+.news-meta{
+  margin-top:6px; font-size:12px; color:#6b7280;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 6px; 
-}
-
-.page-title {
-  color: #000;
-  font-family: Inter, sans-serif;
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0;
+/* 右下「查看內容」 */
+.news-action{
+  position:absolute; right:12px; bottom:12px;
+  border:none; background:transparent; color:#2053ed;
+  font-size:12px; cursor:pointer; white-space:nowrap; padding:0; line-height:1.2;
 }
 
 
-.header-icon {
-  width: 40px;
-  height: 40px;
-}
 
-.notification-bar {
-  display: flex;
-  align-items: center;
-  background: #fff;              /* 白底 */
-  border-radius: 12px;           /*  圓角 */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); /*  陰影 */
-  width: 100%; /* 更窄些 */
-  max-width: 100%;
-  height: 40px;  
-  padding: 8px 12px;
-  margin-bottom: 20px;
-}
+/* Others */
+.anti_fraud-icon{ width:45px; height:45px; }
 
-.notification-icon {
-  width: 40px;
-  height: 40px;
-  margin-right: 8px;
-}
-
-.notification-text {
-  font-weight: 500;
-  color: #888;
-  font-size: 18px;
-}
-
-.carousel {
-  position: relative;
-  width: 100%;
-  max-width: 100%;
-  margin-bottom: 16px;
-  cursor: grab;
-}
-
-.carousel-wrapper {
-  position: relative;
-  width: 100%;
-  height: 180px;
-  overflow: hidden;
-  border-radius: 12px;
-}
-
-.carousel-image {
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  border-radius: 12px;
-  transition: background-image 0.3s ease-in-out;
-}
-/*可能會刪*/
-.carousel-caption {
-  position: absolute;
-  bottom: 12px;
-  left: 16px;
-  right: 16px;
-  background: rgba(0, 0, 0, 0.4);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  animation: fadeIn 0.6s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-/*可能會刪*/
-
-.arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  background-color: rgba(255, 255, 255, 0.5);
-  border: none;
-  font-size: 25px;
-  padding: 8px;
-  cursor: pointer;
-  z-index: 2;
-  border-radius: 50%;
-}
-
-.arrow.left {
-  left: 8px;
-}
-
-.arrow.right {
-  right: 8px;
-}
-
-.carousel-dots {
-  display: flex;
-  justify-content: center;
-  margin-top: 8px;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  background: #ccc;
-  border-radius: 50%;
-  margin: 0 3px;
-}
-
-.dot.active {
-  background: #000;
-}
-
-.news-section {
-  margin-top: 20px;
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.section-title {
-  font-size: 20px;
-  font-weight: bold;
-}
-
-.view-all {
-  font-size: 20px;
-  color: #0063f9;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.arrow-icon {
-  width: 12px;
-  height: 12px;
-  margin-left: 4px;
-}
-
-.news-list {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.news-card {
-  display: flex;
-  background: #f5f5f5;
-  border-radius: 10px;
-  padding: 8px;
-}
-
-.news-image {
-  width: 90px;
-  height: 150px;
-  border-radius: 6px;
-  object-fit: cover;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.news-content {
-  margin-left: 10px;
-  flex: 1;
-}
-
-.news-title {
-  font-size: 15px;
-  font-weight: bold;
-  margin-bottom: 4px;
-}
-
-.news-description {
-  font-size: 15px;
-  color: #555;
-  margin-bottom: 6px;
-}
-
-.news-footer {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #888;
-}
-
-.news-link {
-  font-size: 13px;
-  color: #2053ed;
-  cursor: pointer;
-}
-
-.anti_fraud-icon {
-  width: 45px;
-  height: 45px;
-}
-
-/**測試跳轉用，之後刪掉 */
-.test-btn {
-  margin-top: 20px;
-  padding: 10px 20px;
-  background-color: #007aff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-/**測試跳轉用，之後刪掉 */
+/* 測試按鈕（之後可刪） */
+.test-btn{ margin-top:20px; padding:10px 20px; background-color:#007aff; color:#fff; border:none; border-radius:8px; cursor:pointer; }
 </style>
+

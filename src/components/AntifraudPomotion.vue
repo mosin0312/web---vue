@@ -10,7 +10,7 @@
     <div class="icon-list">
       <div class="icon-row" @click="goTo('/anti-fraud-helpline')">
         <img src="@/assets/icons/Anti-fraud hotline.svg" class="icon-image" alt="防詐專線" />
-        <span class="icon-label">165資訊與<br>回報統計看板</span>
+        <span class="icon-label">165資訊與<br>回報看板</span>
       </div>
       <div class="icon-row" @click="goTo('/common-fraud-methods')">
         <img src="@/assets/icons/common fraud methods.svg" class="icon-image" alt="常見詐騙手法" />

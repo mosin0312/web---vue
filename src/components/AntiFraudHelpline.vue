@@ -2,7 +2,7 @@
   <div class="main-container">
     <header class="title-header sticky-header">
       <img src="@/assets/icons/comeback.svg" alt="Logo" class="header-icon" @click="goBack" />
-      <span class="header-title">165資訊與回報統計看板</span>
+      <span class="header-title">165資訊與回報看板</span>
     </header>
 
     <div class="category-buttons">
@@ -24,8 +24,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import { ref } from 'vue'
 import Hotline165 from './Hotline165.vue'
 import APPInformation from './APPInformation.vue'
 import { useRouter } from 'vue-router'
@@ -34,31 +33,14 @@ const router = useRouter()
 const goBack = () => router.back()
 
 // 分頁標籤
-const tabs = ['165資訊', '回報統計看板']
+const tabs = ['165資訊', '回報看板']
 const currentTab = ref('165資訊')
 
 // 分頁對應元件
 const tabComponents = {
-  '165': Hotline165,
-  'APP資訊': APPInformation,
+  '165資訊': Hotline165,
+  '回報看板': APPInformation,
 }
-
-// ✅ 補上 fallbackStores，避免未定義錯誤（可自行放入預設資料）
-const fallbackStores = []
-
-// 若子元件需要，可透過 props / provide/inject 傳遞；此處先保留載入與備援邏輯
-const stores = ref(fallbackStores)
-
-onMounted(async () => {
-  try {
-    const response = await axios.get('/api/stores')
-    if (Array.isArray(response.data)) {
-      stores.value = response.data
-    }
-  } catch (error) {
-    console.warn('載入 API 資料失敗，使用 fallback 資料')
-  }
-})
 </script>
 
 

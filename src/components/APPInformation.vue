@@ -35,10 +35,10 @@ const appInfoList = ref([])
 // ✅ 取得 Token（使用者登入後儲存在 localStorage）
 const token = localStorage.getItem('userToken')
 
-// ✅ onMounted 時呼叫 API
+// ✅ onMounted 時呼叫新的 API
 onMounted(async () => {
   try {
-    const response = await axios.get('/api/PhoneReports/public', {
+    const response = await axios.get('/api/Test/public', {
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -51,9 +51,17 @@ onMounted(async () => {
     }))
   } catch (error) {
     console.error('取得公開電話資料失敗:', error)
+
+    if (error.response?.status === 401) {
+      alert('尚未登入或登入已過期，請重新登入')
+      // 可選：清空 localStorage 並導向登入頁
+      // localStorage.removeItem('userToken')
+      // location.href = '/login'
+    }
   }
 })
 </script>
+
 
 
 <style scoped>
@@ -82,7 +90,6 @@ onMounted(async () => {
 }
 
 .data-row {
-  background-color: #f9f9f9;
   border-radius: 4px;
 }
 

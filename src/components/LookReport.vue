@@ -102,6 +102,10 @@ function toTs(s) {
 const goBack = () => {
   router.go(-1)
 }
+const goToNews = (item) => {
+  router.push({ path: '/lookdetail', query: { summary: item.summary, link: item.link, description: item.description, imageUrl: item.imageUrl } })
+}
+
 
 // 可選：強化登入驗證（訪客 or 使用者）
 const ensureValidSession = () => {

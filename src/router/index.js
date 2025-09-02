@@ -23,6 +23,8 @@ import BlacklistView from '@/components/BlacklistView.vue'
 import APPInformation from '@/components/APPInformation.vue'
 import UserReports from '@/components/UserReports.vue'
 import SuspectedFraudInformation from '@/components/SuspectedFraudInformation.vue'
+import LookReport from '@/components/LookReport.vue'
+import LookDetail from '@/components/LookDetail.vue'
 
 const routes = [
   { path: '/', component: LoginView },//登入
@@ -48,7 +50,9 @@ const routes = [
   {path:'/blacklist',component:BlacklistView},//黑名單
   {path:'/appinfo',component:APPInformation},
   {path:'/userreport',component:UserReports},
-  {path:'/suspectedfraudinfo',component:SuspectedFraudInformation}
+  {path:'/suspectedfraudinfo',component:SuspectedFraudInformation},
+  {path:'/lookreport',component:LookReport},
+  {path:'/lookdetail',component:LookDetail}
 ]
 
 const router = createRouter({

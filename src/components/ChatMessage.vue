@@ -204,7 +204,7 @@ onMounted(() => {
 
   window.addEventListener('sms-from-android', (e) => analyzeMessages(e.detail || []))
   window.addEventListener('sms-from-notification', (e) => analyzeMessages(e.detail || []))
-  window.addEventListener('mms-from-android', (e) => analyzeMessages(e.detail || []))
+ // window.addEventListener('mms-from-android', (e) => analyzeMessages(e.detail || []))
 })
 
 </script>

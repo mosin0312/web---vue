@@ -1,11 +1,9 @@
 <template>
   <div class="main-container">
-    <div class="title-menberdata">
-      <div class="menberdata-image">
+    <header class="header">
         <img src="@/assets/icons/comeback.svg" alt="Logo" class="header-icon" @click="goBack" />
         <span class="header-title">詳細內容</span>
-      </div>
-    </div>
+      </header>
 
     <div class="frame">
       <div class="frame-1">
@@ -83,39 +81,37 @@ onMounted(() => {
 
 <style scoped>
 .main-container {
+  width: 100%;
   height: 100vh;
-  max-width: 100%;
-  margin: 0 auto;
-  background: linear-gradient(180deg, #ffcbb3, #ffffff);
+  background: linear-gradient(to bottom, #fffcb3, #ffffff);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.title-menberdata {
-  width: 100%;
-  background: #fff;
-  display: flex;
   align-items: center;
-  padding: 10px 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  padding: 0 16px;
+  box-sizing: border-box;
+  position: relative; 
+  overflow-x: hidden;
 }
 
-.menberdata-image {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.header {
+  width: 100%; 
+  height: 40px; 
+  padding: 2px 17px; 
+  display: flex; 
+  align-items: center; 
+  gap: 7px; 
+  background-color: #fff; position: sticky; top: 0; z-index: 10; /* 確保在其他區塊上層 */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 陰影區分層次 */
 }
-
-.header-icon {
+.icon {
   width: 40px;
   height: 40px;
-  margin-right: 12px;
 }
-
 .header-title {
   font-size: 20px;
-  font-weight: bold;
+  color: #000;
+  font-weight: 700;
+  margin: 0;
 }
 
 .frame {

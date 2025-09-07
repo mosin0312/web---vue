@@ -1,16 +1,15 @@
 <template>
-<div class="transparent-wrapper">
-  <div class="main-container">
-    <header class="title-header sticky-header">
-      <img src="@/assets/icons/comeback.svg" alt="Logo" class="header-icon" @click="goBack" />
-      <span class="header-title">問題回報</span>
+<div class="main-container">
+    <!-- Header -->
+    <header class="header">
+        <img src="@/assets/icons/comeback.svg" alt="logo" class="header-icon" @click="goBack"/>
+        <h1 class="page-title">問題回報</h1>
     </header>
     <!-- 兩個主按鈕 -->
     <section class="suspicious-buttons">
       <button class="suspicious-button suspicious-scam" @click="goTosuspectedfraudinfo">疑似詐騙資訊</button>
       <button class="suspicious-button report" @click="goTolookreport">查看回報</button>
     </section>
-  </div>
   </div>
 </template>
 
@@ -26,39 +25,42 @@ const goTolookreport = () => router.push('/lookreport')
 
 <style scoped>
 .main-container {
+  width: 100%;
   height: 100vh;
-  max-width: 100%;
-  margin: 0 auto;
-  background: linear-gradient(180deg, #fffcb3, #ffffff);
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(180deg, #fffcb3 0%, #ffffff 100%);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.title-header {
-  display: flex;
   align-items: center;
-  padding: 8px 16px;
-  background-color: #fff;
-  border-bottom: 1px solid #eee;
-  z-index: 10;
+  padding: 0 16px;
+  box-sizing: border-box;
+  position: relative; 
 }
 
-.sticky-header {
-  position: sticky;
-  top: 0;
-  background: white;
+.header {
+  width: 100%; 
+  height: 40px; 
+  padding: 2px 17px; 
+  display: flex; 
+  align-items: center; 
+  gap: 7px; 
+  background-color: #fff; position: sticky; top: 0; z-index: 10; /* 確保在其他區塊上層 */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 陰影區分層次 */
+  
 }
+
+.page-title {
+  color: #000;
+  font-family: Inter, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
 
 .header-icon {
   width: 40px;
   height: 40px;
-  margin-right: 12px;
-}
-
-.header-title {
-  font-size: 20px;
-  font-weight: bold;
 }
 
 /* 主按鈕區 */

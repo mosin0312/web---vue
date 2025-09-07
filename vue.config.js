@@ -11,10 +11,10 @@ module.exports = {
       },
 
       // Whisper 服務
-      '/whisper': {
-        target: 'http://10.176.239.52:5001',
-        changeOrigin: true
-      }
+      // '/whisper': {
+      //   target: 'http://10.176.239.52:5001',
+      //   changeOrigin: true
+      // }
     }
   }
 }

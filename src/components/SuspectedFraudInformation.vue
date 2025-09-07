@@ -1,11 +1,10 @@
 <template>
   <div class="main-container">
-    <div class="title-menberdata">
-      <div class="menberdata-image">
-        <img src="@/assets/icons/comeback.svg" alt="Logo" class="header-icon" @click="goBack" />
-        <span class="header-title">疑似詐騙資訊</span>
-      </div>
-    </div>
+    <!-- Header -->
+    <header class="header">
+        <img src="@/assets/icons/comeback.svg" alt="logo" class="header-icon" @click="goBack"/>
+        <h1 class="page-title">疑似詐騙資訊</h1>
+    </header>
 
     <div class="frame">
       <div class="frame-1">
@@ -209,39 +208,42 @@ const handleSubmit = async () => {
 
 <style scoped>
 .main-container {
+  width: 100%;
   height: 100vh;
-  max-width: 100%;
-  margin: 0 auto;
-  background: linear-gradient(180deg, #ffcbb3, #ffffff);
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(180deg, #fffcb3 0%, #ffffff 100%);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  padding: 0 16px;
+  box-sizing: border-box;
+  position: relative; 
 }
 
-.title-menberdata {
-  width: 100%;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  padding: 10px 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+.header {
+  width: 100%; 
+  height: 40px; 
+  padding: 2px 17px; 
+  display: flex; 
+  align-items: center; 
+  gap: 7px; 
+  background-color: #fff; position: sticky; top: 0; z-index: 10; /* 確保在其他區塊上層 */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 陰影區分層次 */
+  
 }
 
-.menberdata-image {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.page-title {
+  color: #000;
+  font-family: Inter, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
 }
+
 
 .header-icon {
   width: 40px;
   height: 40px;
-  margin-right: 12px;
-}
-
-.header-title {
-  font-size: 20px;
-  font-weight: bold;
 }
 
 .frame {

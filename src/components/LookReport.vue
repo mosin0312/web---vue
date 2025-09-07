@@ -2,10 +2,8 @@
   <div class="main-container">
     <!-- Header -->
     <header class="header">
-      <div class="header-left">
         <img src="@/assets/icons/comeback.svg" alt="logo" class="header-icon" @click="goBack"/>
         <h1 class="page-title">查看回報</h1>
-      </div>
     </header>
 
     <!-- News Section -->
@@ -141,7 +139,7 @@ onMounted(() => {
   width: 100%;
   height: 100vh;
   font-family: 'Inter', sans-serif;
-  background: linear-gradient(180deg, #d4d8fa 0%, #ffffff 100%);
+  background: linear-gradient(180deg, #fffcb3 0%, #ffffff 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -151,28 +149,15 @@ onMounted(() => {
 }
 
 .header {
-  display: flex;
-  max-width: 100%;
-  padding: 8px 16px; 
-  margin: 0 -16px; /* 抵消 main-container 的 padding 使 header 貼齊左右邊緣 */
-  width: calc(100% + 32px); /* 讓 header 撐滿整個視圖 */
-  justify-content: space-between; /*調整標題文字位置*/
-  align-items: center;
-  gap: 10px;
-  background: #fff;              /* 白底 */
-  margin-bottom: 20px;
-  /*新增置頂設定 */
-  position: sticky;
-  top: 0;
-  z-index: 10; /* 確保在其他區塊上層 */
+  width: 100%; 
+  height: 40px; 
+  padding: 2px 17px; 
+  display: flex; 
+  align-items: center; 
+  gap: 7px; 
+  background-color: #fff; position: sticky; top: 0; z-index: 10; /* 確保在其他區塊上層 */
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* 陰影區分層次 */
   
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 6px; 
 }
 
 .page-title {

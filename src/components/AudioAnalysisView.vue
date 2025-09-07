@@ -36,29 +36,35 @@
               <span class="reason">{{ item.isScam ? '疑似詐騙對話' : '無明顯風險' }}</span>
             </div>
             <!-- ✅ 音訊播放器：已載入才顯示 -->
-      <div class="audio-player" v-if="item.showPlayer">
-  <audio :src="item.audioUrl" controls autoplay></audio>
+<div class="audio-player push-left" v-if="item.showPlayer">
+  <audio :src="item.audioUrl" controls></audio>
 </div>
+
+<div class="timestamp">{{ formatDate(item.analyzedAt) }}</div>
     </div>
   </div>
         <div class="right">
           <div class="button-group">
-            <button class="pill sm primary" @click="showTranscription(item)">分析</button>
+            <button class="pill sm primary" @click.stop="showTranscription(item)">分析</button>
             <button class="pill sm danger"  @click="remove(index)">刪除</button>
           </div>
-          <div class="timestamp">{{ formatDate(item.analyzedAt) }}</div>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- 登入提示 Modal -->
-  <div v-if="modalVisible" class="modal-overlay">
-    <div class="modal-content">
-      <p>{{ modalMessage }}</p>
-      <button @click="confirmAlert">確定</button>
-    </div>
+<div
+  v-if="legacyModalVisible"
+  class="modal-overlay"
+  @click.self="legacyModalVisible = false"
+>
+  <div class="modal-content" @click.stop>
+    <h3>分析文字</h3>
+    <pre class="transcription">{{ currentTranscription }}</pre>
+    <button class="pill sms" @click.stop="legacyModalVisible = false">關閉</button>
   </div>
+</div>
+  <!-- 登入提示 Modal -->
+  
   <AlertModal
   :visible="modalVisible"
   :message="modalMessage"
@@ -101,10 +107,13 @@ const pendingResolve = ref(null)       // 新：回傳 Promise 用
 
 // 只有「確定」的提示（按確定或關閉都 resolve(true)）
 function showAlert(message, redirectToLogin = false) {
+  // 互斥：開 alert 前先關 legacy
+  legacyModalVisible.value = false
+
   modalMessage.value = message
   modalMode.value = 'alert'
   modalVisible.value = true
-  pendingAction.value = redirectToLogin ? (() => router.push('/login')) : null
+  pendingAction.value = redirectToLogin ? (() => router.push('/')) : null
   return new Promise((resolve) => { pendingResolve.value = resolve })
 }
 
@@ -222,29 +231,31 @@ function attachAndroidHooks() {
 }
 
 /* =============== 播放（只允許單一播放器） =============== */
-// 友善檔名顯示：優先用 originalFileName，否則清掉 UUID 前綴
+// 檔名顯示：優先用 originalFileName，否則清掉 UUID 前綴
 function prettifyName(name) {
   if (!name) return ''
   // 去掉開頭 32~36 字元的十六進位/連字號 UUID 與可能的空白、底線
   return name.replace(/^[0-9a-fA-F-]{32,36}\s*[_-]?\s*/,'')
 }
-function shortText(text) {
+function shortText(text, max = 10) {
   if (!text) return ''
 
   const dotIndex = text.lastIndexOf('.')
   const ext = dotIndex !== -1 ? text.slice(dotIndex) : ''
   const base = dotIndex !== -1 ? text.slice(0, dotIndex) : text
 
-  if (base.length <= 6) {
+  if (base.length <= max) {
     return base + ext
   }
-  return base.slice(0, 6) + '…' + ext
+  return base.slice(0, max) + '…' + ext
 }
 
 function displayName(item) {
   const raw = item.originalFileName || item.fileName || ''
-  return shortText(prettifyName(raw))
+  // 這裡你就可以傳 max = 6
+  return shortText(prettifyName(raw), 6)
 }
+
 
 
 const playAudio = async (item) => {
@@ -336,9 +347,23 @@ const downloadLatest = async () => {
 }
 
 /* =============== 其他功能 =============== */
-const showTranscription = async (item) => {
-  await showAlert(item.transcription || '尚未有分析文字')
+
+// 控制「分析文字」區塊
+const legacyModalVisible = ref(false)
+const currentTranscription = ref('')
+
+// 一律用同一個視窗顯示，不再呼叫 showAlert
+const showTranscription = (item) => {
+  // 互斥：關掉 AlertModal，避免被蓋住
+  modalVisible.value = false
+  modalMessage.value = ''
+
+  const text = (item?.transcription ?? '').toString().trim()
+  currentTranscription.value = text || '尚未有分析文字'
+  legacyModalVisible.value = true
 }
+
+
 const remove = async (index) => {
   const ok = await showConfirm('確定要移除此項目？')
   if (!ok) return
@@ -384,7 +409,7 @@ onMounted(async () => {
       window.Android?.setAuth(
   localStorage.getItem('userToken') || '',
   Number(localStorage.getItem('userId') || 0),
-  'http://192.168.217.131:5001'  // ← API 站台。Android 上傳錄音會打這個
+  'http://192.168.217.134:5001'  // ← API 站台。Android 上傳錄音會打這個
 )
 
     } catch {
@@ -515,6 +540,18 @@ onBeforeUnmount(() => { detachHooks?.() })
 /* 顏色開關（工具列用純白、列表中的操作用配色） */
 .pill.primary{ background:#5a67d8; color:#fff; border-color:#3c4aa3; }
 .pill.danger { background:#f8d7da; color:#721c24; border-color:#d3a3a7; }
+.pill.sms {
+  align-self: center;       /* 置中 */
+  margin-top: auto;         /* 推到底部 */
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  background-color: #4c82f0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
 
 /* 工具列排版（小螢幕自動換行） */
 .actions{
@@ -541,10 +578,47 @@ onBeforeUnmount(() => { detachHooks?.() })
   display:flex; gap:8px; align-items:center;
 }
 
+
 /* 播放鍵若想更好點，加大一點 */
 .play-icon { width: 44px; height: 44px; }
+
+/* 只把整塊往左推一點，同時補右邊空間避免被裁掉 */
+.audio-item { overflow: hidden; }
+.audio-player.push-left { 
+  margin-top: 8px;
+  margin-left: -30px; 
+  padding-right: 8px; } /* -6~-12px 自行微調 */
+
+
 .timestamp {
   font-size: 12px;
   margin-top: 8px;
 }
+
+.modal-overlay{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.4);
+  display:flex; align-items:center; justify-content:center;
+  z-index: 10000;
+}
+.modal-content {
+  background: #fff;
+  width: min(90vw, 360px);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;   /* 限制高度，避免文字太長撐爆 */
+}
+
+.transcription {
+  flex: 1;                  /* 撐開剩餘空間 */
+  overflow-y: auto;         /* 長文字可捲動 */
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 12px;
+}
+
 </style>

@@ -52,6 +52,33 @@ const showLoginModal = ref(false)
 // 新聞
 const newsList = ref([])
 
+/** 取第一個非空白字串 */
+function firstNonEmpty(...vals) {
+  for (const v of vals) {
+    if (typeof v === 'string' && v.trim()) return v.trim()
+  }
+  return ''
+}
+
+/** 去 HTML 標籤 */
+function stripHtml(s = '') {
+  return s.replace(/<[^>]*>/g, '')
+}
+
+/** 解碼 HTML entities（用瀏覽器內建解碼） */
+function decodeEntities(s = '') {
+  const el = document.createElement('textarea')
+  el.innerHTML = s
+  return el.value
+}
+
+/** 做 2 行內的摘要（預設約 120 字內），自動去標籤與多空白 */
+function toSnippet(s = '', max = 120) {
+  const t = decodeEntities(stripHtml(s)).replace(/\s+/g, ' ').trim()
+  return t.length > max ? t.slice(0, max - 1) + '…' : t
+}
+
+
 const fetchNews = async () => {
   try {
     const role = localStorage.getItem('userRole') // "User" or "Guest"
@@ -118,16 +145,26 @@ const fetchNews = async () => {
 
 /** 將 MemberManagement 來源的資料轉成統一結構 */
 function normalizeFromMember(arr) {
-  // 常見欄位：title, link, pubDate, image / imageUrl ...
   return arr.map(it => {
     const pubDateText = it.pubDate || it.time || ''
+    // 盡量取到原站的摘要；最後保底退回 title
+    const rawDesc = firstNonEmpty(
+      it.description,
+      it.summary,
+      it.contentSnippet,
+      it.content,
+      it['content:encoded'],
+      it.subtitle
+    )
+    const description = toSnippet(rawDesc || it.title, 120)
+
     return {
       title: it.title ?? '',
       link: it.link ?? '',
       pubDateText,
       ts: toTs(pubDateText),
       image: it.image || it.imageUrl || null,
-      description: it.description || ''
+      description
     }
   })
 }
@@ -136,13 +173,16 @@ function normalizeFromMember(arr) {
 function normalizeFrom165(arr) {
   return arr.map(it => {
     const pubDateText = it.time || ''
+    const rawDesc = firstNonEmpty(it.description, it.desc, it.subtitle, it.summary)
+    const description = toSnippet(rawDesc || it.title, 120)
+
     return {
       title: it.title ?? '',
       link: it.link ?? '',
       pubDateText,
       ts: toTs(pubDateText),
       image: null,
-      description: ''                     // ← 明確空字串，版面一致
+      description
     }
   })
 }

@@ -1,5 +1,6 @@
+ 
 <template>
-  <div class="audio-container" v-if="!modalVisible">
+  <div class="audio-container" >
     <header class="header">
       <img class="icon" src="@/assets/icons/header-icon.svg" alt="icon" />
       <h1 class="header-title">錄音檔分析</h1>
@@ -7,11 +8,7 @@
 
     <div class="actions">
   <input type="file" ref="fileInput" style="display: none" accept="audio/*" @change="handleUpload" />
-  <button class="pill lg" @click="triggerUpload">上傳</button>
-<button class="pill lg" @click="downloadLatest">下載</button>
-<!-- 新增：手動開始/停止錄音 -->
-<button class="pill lg" @click="startRecording">開始錄音</button>
-<button class="pill lg" @click="stopRecording">停止錄音</button>
+  <button class="pill lg" @click="triggerUpload">上傳錄音檔並分析</button>
   
 
 
@@ -21,6 +18,22 @@
     自動錄來電
   </label>
 </div>
+<div class="recording-page">
+    <!-- 儲存位置提示：不提供複製，只做說明 -->
+    <section class="storage-hint">
+      <div class="hint-line">
+        <span class="hint-title">電話錄音儲存位置</span>
+<div class="hint-path-row">
+  <span
+    class="hint-path wrap"
+    :title="dirPath || '（錄音完成後會顯示儲存位置）'"
+  >
+    {{ dirPath || '（錄音完成後會顯示儲存位置）' }}
+  </span>
+</div>
+      </div>
+      <p class="hint-note">錄音檔僅儲存在本機裝置，不會上傳伺服器。</p>
+    </section>
 
     <div class="audio-list">
       <div class="audio-item" v-for="(item, index) in audioFiles" :key="item.id || index">
@@ -40,13 +53,14 @@
   <audio :src="item.audioUrl" controls></audio>
 </div>
 
-<div class="timestamp">{{ formatDate(item.analyzedAt) }}</div>
+<div class="timestamp">{{ formatDate(item.createdAt || item.uploadedAt || item.analyzedAt) }}</div>
     </div>
   </div>
         <div class="right">
           <div class="button-group">
-            <button class="pill sm primary" @click.stop="showTranscription(item)">分析</button>
-            <button class="pill sm danger"  @click="remove(index)">刪除</button>
+            <button class="pill sm primary" @click.stop="showTranscription(item)">分析結果</button>
+            <button class="pill ms" @click.stop="downloadAudio(item)">下載</button>
+            <button class="pill ms danger" @click="removeAudio(item, index)">刪除</button>
           </div>
         </div>
       </div>
@@ -63,14 +77,18 @@
     <button class="pill sms" @click.stop="legacyModalVisible = false">關閉</button>
   </div>
 </div>
+  </div>
   <!-- 登入提示 Modal -->
   
-  <AlertModal
-  :visible="modalVisible"
-  :message="modalMessage"
-  @confirm="onModalConfirm"
-  @close="onModalClose"
-/>
+  <!-- 提示框 -->
+    <AlertModal
+      :visible="modalVisible"
+      :message="modalMessage"
+      :mode="modalMode"
+      @confirm="onModalConfirm"
+      @close="onModalClose"
+    />
+  
 
 </template>
 
@@ -84,6 +102,7 @@ const router = useRouter()
 const fileInput = ref(null)
 const audioFiles = ref([])
 const autoIncoming = ref(false)
+const dirPath = ref('')
 
 // ✅ 登入資訊
 const token = localStorage.getItem('userToken')
@@ -150,29 +169,7 @@ const getErr = (err) =>
   (typeof err?.response?.data === 'string' ? err.response.data : null) ??
   err?.message ?? '發生未知錯誤'
 
-/* =============== Android 掛勾：開始/停止錄音 & 自動錄來電 =============== */
-const startRecording = () => {
-  try {
-    if (!window.Android?.startRecording) {
-      return showAlert('此裝置不支援：缺少 Android.startRecording')
-    }
-    // number 讓 Android 自行判斷（去電用撥號號碼、來電用 lastRingingNumber）
-    window.Android.startRecording('', 3) // 第二個參數=本次最多段數，Android 端會再依剩餘額度限縮
-  } catch (e) {
-    showAlert('啟動錄音失敗：' + (e?.message || e))
-  }
-}
-
-const stopRecording = () => {
-  try {
-    if (!window.Android?.stopRecording) {
-      return showAlert('此裝置不支援：缺少 Android.stopRecording')
-    }
-    window.Android.stopRecording()
-  } catch (e) {
-    showAlert('停止錄音失敗：' + (e?.message || e))
-  }
-}
+/* =============== 自動錄來電 =============== */
 
 const toggleAutoIncoming = async () => {
   try {
@@ -187,49 +184,45 @@ const toggleAutoIncoming = async () => {
 }
 
 /* =============== Android 回拋（完成 / 額度用盡 / 上傳完成） =============== */
+
+
 function attachAndroidHooks() {
-  // 錄音完成（本機檔案生成）
-  window.AudioReceiver = {
-    receive: async (payload) => {
-      try {
-        const obj = JSON.parse(payload) // { number, files: [...] }
-        await showAlert(`錄音完成：${obj.files?.length || 0} 段`)
-        // 這裡不一定有入庫，真正入庫後 recording-uploaded 會再觸發刷新
-      } catch (e) {
-        console.error('AudioReceiver payload parse error', e)
-      }
-    }
+  const filenameFromUri = (u) => {
+    try {
+      const last = u.split('/').pop() || ''
+      // content://… 不一定有副檔名；保留字串即可
+      return decodeURIComponent(last) || '錄音檔'
+    } catch { return '錄音檔' }
   }
 
-  // 2) 額度用盡事件：Android 端 dispatchEvent('recording-no-budget')
-  const onUploaded = async (e) => {
-    // e.detail: { ok, fail }
-    await fetchAudioList()
-    if (e?.detail?.fail > 0) {
-      await showAlert(`有 ${e.detail.fail} 段上傳失敗`)
-    }
-  }
- window.addEventListener('recording-uploaded', async (e) => {
-  await fetchAudioList()
-  const d = e?.detail || {}
-  if (d.fail > 0) {
-    // 常見狀態碼對應
-    const hint =
-      d.code === 401 || d.code === 403 ? '（Token 失效或未授權）' :
-      d.code === 400 ? '（參數錯誤，例如檔案格式）' :
-      d.code === 415 ? '（Content-Type 不支援）' :
-      d.code === 502 ? '（後端呼叫 Whisper 失敗）' :
-      d.code === -1  ? '（裝置無網路或連線逾時）' : ''
-    await showAlert(`有 ${d.fail} 段上傳失敗，code=${d.code} ${hint}\n${(d.msg || '').slice(0,160)}`)
-  }
-})
+  const onSaved = (e) => {
+    const d = e?.detail || {}
+    // 顯示「電話錄音儲存位置」
+    dirPath.value = d.publicDir || d.dir || 'Music/來訊有詐/records-data'
 
-  // 回傳清理函式
-  return () => {
-    window.removeEventListener('recording-uploaded', onUploaded)
+    // 把本機錄音（content:// URI）塞進現有清單
+    const uris = Array.isArray(d.uris) ? d.uris : []
+    const items = uris.map(u => ({
+      id: null,
+      fileName: filenameFromUri(u),
+      originalFileName: filenameFromUri(u),
+      durationSeconds: null,
+      isScam: null,
+      showPlayer: false,
+      audioUrl: u,   // 直接保存 content://
+      _local: true,  // ← 標記「本機檔」
+    }))
+    // 新的放最前面
+    audioFiles.value.unshift(...items)
   }
+
+  window.addEventListener('recording-saved', onSaved)
+  return () => window.removeEventListener('recording-saved', onSaved)
 }
 
+onMounted(() => {
+  detachHooks = attachAndroidHooks()
+})
 /* =============== 播放（只允許單一播放器） =============== */
 // 檔名顯示：優先用 originalFileName，否則清掉 UUID 前綴
 function prettifyName(name) {
@@ -252,8 +245,8 @@ function shortText(text, max = 10) {
 
 function displayName(item) {
   const raw = item.originalFileName || item.fileName || ''
-  // 這裡你就可以傳 max = 6
-  return shortText(prettifyName(raw), 6)
+  // 這裡你就可以傳 max =5
+  return shortText(prettifyName(raw), 5)
 }
 
 
@@ -310,8 +303,11 @@ const handleUpload = async (event) => {
 /* =============== 撈取音檔清單 =============== */
 const fetchAudioList = async () => {
   try {
+    // 先清理（後端新規範：應在查看列表前）
+    await cleanupAudios(3)
+
     const res = await axios.get(`/api/Test/user/${userId}/audios`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: authHeaders
     })
     audioFiles.value = (res.data || []).map(x => ({
       ...x,
@@ -323,28 +319,42 @@ const fetchAudioList = async () => {
   }
 }
 
-/* =============== 下載最新檔案 =============== */
-const downloadLatest = async () => {
-  if (!audioFiles.value.length) return void (await showAlert('無檔案可下載'))
-  const latest = audioFiles.value[0]
+// =======================
+// 刪除單筆
+// =======================
+const removeAudio = async (item, index) => {
+  const ok = await showConfirm('確定要移除此項目？')
+  if (!ok) return
+
   try {
-    const res = await axios.get('/api/Test/download-local', {
-      headers: { Authorization: `Bearer ${token}` },
-      params: { fileName: latest.fileName },
-      responseType: 'blob'
+    await axios.delete('/api/Test/audios/delete', {
+      headers: {
+        ...authHeaders,
+        'Content-Type': 'application/json'
+      },
+      data: {
+        id: item.id,                    // 後端需要 Id
+        userId: Number(userId || 0)     // 後端要驗證 UserId
+      }
     })
-    const blobUrl = URL.createObjectURL(res.data)
-    const a = document.createElement('a')
-    a.href = blobUrl
-    a.download = latest.fileName || 'audio'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(blobUrl)
+
+    audioFiles.value.splice(index, 1)
+    await showAlert('刪除完成')
   } catch (err) {
-    await showAlert('下載失敗：' + getErr(err))
+    await showAlert('刪除失敗：' + getErr(err))
   }
 }
+
+/* =============== 下載最新檔案 =============== */
+const downloadAudio = async (item) => {
+  // 改成直接導向，讓 WebView 交給 DownloadManager
+  const url = `/api/Test/download-local?fileName=${encodeURIComponent(item.fileName)}`
+  // 若後端靠 Authorization header 驗證，兩種做法：
+  // 1) 後端改成可用短效簽名網址 / token 當查詢字串
+  // 2) 保持 header，就用上面的 DownloadListener addRequestHeader() 注入
+  window.location.href = url
+}
+
 
 /* =============== 其他功能 =============== */
 
@@ -363,21 +373,45 @@ const showTranscription = (item) => {
   legacyModalVisible.value = true
 }
 
-
-const remove = async (index) => {
-  const ok = await showConfirm('確定要移除此項目？')
-  if (!ok) return
-  audioFiles.value.splice(index, 1)
+const authHeaders = { Authorization: `Bearer ${token}` }
+// =======================
+// NEW：清理過期音檔（預設 3 天）
+// =======================
+const cleanupAudios = async (days = 3) => {
+  try {
+    await axios.delete('/api/Test/audios/cleanup', {
+      headers: authHeaders,
+      params: { days }
+    })
+  } catch (e) {
+    // 清理失敗不阻擋後續流程，但給個提示
+    console.warn('cleanupAudios failed:', getErr(e))
+  }
 }
+
 const getRiskIcon = (isScam) => {
   if (isScam === true) return new URL('@/assets/icons/risk-high.svg', import.meta.url).href
   if (isScam === false) return new URL('@/assets/icons/risk-low.svg', import.meta.url).href
   return new URL('@/assets/icons/risk-unknown.svg', import.meta.url).href
 }
-const formatDate = (dt) => {
-  if (!dt) return ''
-  const d = new Date(dt)
-  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+
+const toLocalDate = (t) => {
+  if (!t) return null
+  if (typeof t === 'number') return new Date(t > 1e12 ? t : t * 1000) // 秒→毫秒
+  let s = String(t).trim().replace(' ', 'T') // "YYYY-MM-DD HH:mm:ss" → ISO 風格
+  // 若沒有時區資訊，視為 UTC
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s) && !/(?:[zZ]|[+-]\d{2}:\d{2})$/.test(s)) s += 'Z'
+  const d = new Date(s)
+  return isNaN(+d) ? null : d
+}
+const formatDate = (t) => {
+  const d = toLocalDate(t)
+  if (!d) return ''
+  const mm = String(d.getMonth()+1).padStart(2,'0')
+  const dd = String(d.getDate()).padStart(2,'0')
+  const hh = String(d.getHours()).padStart(2,'0')
+  const mi = String(d.getMinutes()).padStart(2,'0')
+  return `${d.getFullYear()}/${mm}/${dd} ${hh}:${mi}`
 }
 const formatDuration = (sec) => {
   const m = Math.floor((sec || 0) / 60)
@@ -396,6 +430,7 @@ onMounted(async () => {
   }
 
   // Android 掛勾
+  
   if (typeof window !== 'undefined') {
     detachHooks = attachAndroidHooks()
     // 讀取「自動錄來電」開關
@@ -409,7 +444,7 @@ onMounted(async () => {
       window.Android?.setAuth(
   localStorage.getItem('userToken') || '',
   Number(localStorage.getItem('userId') || 0),
-  'http://192.168.217.134:5001'  // ← API 站台。Android 上傳錄音會打這個
+  'http://192.168.217.152:5001'  // ← API 站台。Android 上傳錄音會打這個
 )
 
     } catch {
@@ -433,7 +468,7 @@ onBeforeUnmount(() => { detachHooks?.() })
 <style scoped>
 .audio-container {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   background: linear-gradient(to bottom, #dcf5ff, #ffffff);
   display: flex;
   flex-direction: column;
@@ -499,16 +534,16 @@ onBeforeUnmount(() => { detachHooks?.() })
 .risk {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 3px;
+  font-size: 10px;
   margin-top: 4px;
 }
 .risk-icon {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
 }
 .reason {
-  font-size: 12px;
+  font-size: 10px;
   color: #cc0000;
 }
 .right {
@@ -534,9 +569,9 @@ onBeforeUnmount(() => { detachHooks?.() })
 .pill:hover{ box-shadow: 0 3px 8px rgba(0,0,0,.18); }
 
 /* 大小開關 */
-.pill.lg{ padding: 12px 18px; font-size:16px; min-height:44px; min-width:92px; }
-.pill.sm{ padding: 6px 12px;  font-size:13px; min-height:32px; min-width:68px; }
-
+.pill.lg{ padding: 12px 18px; font-size:13px; min-height:30px; min-width:50px; }
+.pill.ms{ padding: 6px 12px; font-size:10px; min-height:30px; min-width:60px; }
+.pill.sm{ padding: 6px 12px;  font-size:10px; min-height:30px; min-width:65px; }
 /* 顏色開關（工具列用純白、列表中的操作用配色） */
 .pill.primary{ background:#5a67d8; color:#fff; border-color:#3c4aa3; }
 .pill.danger { background:#f8d7da; color:#721c24; border-color:#d3a3a7; }
@@ -564,9 +599,7 @@ onBeforeUnmount(() => { detachHooks?.() })
 
 /* 檔名過長以…顯示 */
 .title{
-  font-weight: 700;
-  font-size: 16px;
-        /* max-width: 220px;依你的版面可調 */
+  font-size: 14px;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
@@ -575,12 +608,12 @@ onBeforeUnmount(() => { detachHooks?.() })
 
 /* 列表內操作按鈕列 */
 .button-group{
-  display:flex; gap:8px; align-items:center;
+  display:flex; gap:3px; align-items:center;
 }
 
 
 /* 播放鍵若想更好點，加大一點 */
-.play-icon { width: 44px; height: 44px; }
+.play-icon { width: 40px; height: 40px; }
 
 /* 只把整塊往左推一點，同時補右邊空間避免被裁掉 */
 .audio-item { overflow: hidden; }
@@ -621,4 +654,39 @@ onBeforeUnmount(() => { detachHooks?.() })
   margin-bottom: 12px;
 }
 
+.storage-hint {
+  background: #f6f7fb;
+  border: 1px solid #e3e6f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.hint-line { display: flex; flex-direction: column; gap: 4px; }
+.hint-path-row{
+  display:flex; align-items:center; gap:.5rem; max-width:100%;
+}
+.hint-path{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.hint-path.wrap{
+  overflow-wrap:anywhere;   /* 長字可在任何位置換行 */
+  word-break:break-all;     /* 備援：必要時強制換行 */
+}
+.hint-note { margin: 6px 0 0; font-size: 12px; color: #666; }
+
+.rec-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.rec-item { border: 1px solid #eee; border-radius: 10px; padding: 10px; }
+.rec-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rec-name { font-size: 14px; font-weight: 500; }
+.rec-play { padding: 6px 10px; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+.rec-audio { width: 100%; margin-top: 8px; }
+.recording-page{
+  margin-top: 8px;
+  margin-bottom: 8px;
+  width: 99.5%;   /* 螢幕大時最多 900px，小螢幕吃 92% 寬 */
+  margin: 8px auto;          /* 置中 */
+}
+
 </style>
+
+

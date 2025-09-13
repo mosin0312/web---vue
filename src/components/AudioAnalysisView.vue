@@ -1,96 +1,93 @@
  
 <template>
-  <div class="audio-container" >
-    <header class="header">
-      <img class="icon" src="@/assets/icons/header-icon.svg" alt="icon" />
-      <h1 class="header-title">錄音檔分析</h1>
-    </header>
+  <div class="viewport-fit">
+    <div class="audio-container">
+      <header class="header">
+        <img class="icon" src="@/assets/icons/header-icon.svg" alt="icon" />
+        <h1 class="header-title">錄音檔分析</h1>
+      </header>
 
-    <div class="actions">
-  <input type="file" ref="fileInput" style="display: none" accept="audio/*" @change="handleUpload" />
-  <button class="pill lg" @click="triggerUpload">上傳錄音檔並分析</button>
-  
+      <div class="actions">
+        <input type="file" ref="fileInput" style="display: none" accept="audio/*" @change="handleUpload" />
+        <button class="pill lg" @click="triggerUpload">上傳錄音檔並分析</button>
 
-
-  <!-- 新增：自動錄來電 -->
-  <label style="display:flex;align-items:center;gap:6px">
-    <input type="checkbox" v-model="autoIncoming" @change="toggleAutoIncoming" />
-    自動錄來電
-  </label>
-</div>
-<div class="recording-page">
-    <!-- 儲存位置提示：不提供複製，只做說明 -->
-    <section class="storage-hint">
-      <div class="hint-line">
-        <span class="hint-title">電話錄音儲存位置</span>
-<div class="hint-path-row">
-  <span
-    class="hint-path wrap"
-    :title="dirPath || '（錄音完成後會顯示儲存位置）'"
-  >
-    {{ dirPath || '（錄音完成後會顯示儲存位置）' }}
-  </span>
-</div>
+        <!-- 新增：自動錄來電 -->
+        <label style="display:flex;align-items:center;gap:6px"></label>
+        <!-- <input type="checkbox" v-model="autoIncoming" @change="toggleAutoIncoming" /> 自動錄來電 -->
       </div>
-      <p class="hint-note">錄音檔僅儲存在本機裝置，不會上傳伺服器。</p>
-    </section>
 
-    <div class="audio-list">
-      <div class="audio-item" v-for="(item, index) in audioFiles" :key="item.id || index">
-        <div class="left">
-          <img class="play-icon" src="@/assets/icons/play.svg" alt="play" @click="playAudio(item)"/>
-          <div class="info">
-            <div class="title" :title="item.originalFileName || item.fileName">
-  {{ displayName(item) }}
-</div>
-            <div class="duration">{{ formatDuration(item.durationSeconds) }}</div>
-            <div v-if="item.isScam !== null" class="risk">
-              <img class="risk-icon" :src="getRiskIcon(item.isScam)" alt="risk" />
-              <span class="reason">{{ item.isScam ? '疑似詐騙對話' : '無明顯風險' }}</span>
+      <div class="recording-page">
+        <!-- 儲存位置提示（保留註解） -->
+        <!--
+        <section class="storage-hint">
+          <div class="hint-line">
+            <span class="hint-title">電話錄音儲存位置</span>
+            <div class="hint-path-row">
+              <span class="hint-path wrap" :title="dirPath || '（錄音完成後會顯示儲存位置）'">
+                {{ dirPath || '（錄音完成後會顯示儲存位置）' }}
+              </span>
             </div>
-            <!-- ✅ 音訊播放器：已載入才顯示 -->
-<div class="audio-player push-left" v-if="item.showPlayer">
-  <audio :src="item.audioUrl" controls></audio>
-</div>
+          </div>
+          <p class="hint-note">錄音檔僅儲存在本機裝置，不會上傳伺服器。</p>
+        </section>
+        -->
+      </div>
 
-<div class="timestamp">{{ formatDate(item.createdAt || item.uploadedAt || item.analyzedAt) }}</div>
-    </div>
-  </div>
-        <div class="right">
-          <div class="button-group">
-            <button class="pill sm primary" @click.stop="showTranscription(item)">分析結果</button>
-            <button class="pill ms" @click.stop="downloadAudio(item)">下載</button>
-            <button class="pill ms danger" @click="removeAudio(item, index)">刪除</button>
+      <div class="audio-list">
+        <div class="audio-item" v-for="(item, index) in audioFiles" :key="item.id || index">
+          <div class="left">
+            <img class="play-icon" src="@/assets/icons/play.svg" alt="play" @click="playAudio(item)" />
+            <div class="info">
+              <div class="title" :title="item.originalFileName || item.fileName">
+                {{ displayName(item) }}
+              </div>
+              <div class="duration">{{ formatDuration(item.durationSeconds) }}</div>
+
+              <div v-if="item.isScam !== null" class="risk">
+                <img class="risk-icon" :src="getRiskIcon(item.isScam)" alt="risk" />
+                <span class="reason">{{ item.isScam ? '疑似詐騙對話' : '無明顯風險' }}</span>
+              </div>
+
+              <!-- ✅ 音訊播放器：已載入才顯示 -->
+              <div class="audio-player push-left" v-if="item.showPlayer">
+                <audio :src="item.audioUrl" controls></audio>
+              </div>
+
+              <div class="timestamp">{{ formatDate(item.createdAt || item.uploadedAt || item.analyzedAt) }}</div>
+            </div>
+          </div>
+
+          <div class="right">
+            <div class="button-group">
+              <button class="pill sm primary" @click.stop="showTranscription(item)">分析結果</button>
+              <button class="pill ms" @click.stop="downloadAudio(item)">下載</button>
+              <button class="pill ms danger" @click="removeAudio(item, index)">刪除</button>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- 文字分析 Modal（舊版） -->
+      <div v-if="legacyModalVisible" class="modal-overlay" @click.self="legacyModalVisible = false">
+        <div class="modal-content" @click.stop>
+          <h3>分析文字</h3>
+          <pre class="transcription">{{ currentTranscription }}</pre>
+          <button class="pill sms" @click.stop="legacyModalVisible = false">關閉</button>
+        </div>
+      </div>
+
+      <!-- 提示框 -->
+      <AlertModal
+        :visible="modalVisible"
+        :message="modalMessage"
+        :mode="modalMode"
+        @confirm="onModalConfirm"
+        @close="onModalClose"
+      />
     </div>
   </div>
-<div
-  v-if="legacyModalVisible"
-  class="modal-overlay"
-  @click.self="legacyModalVisible = false"
->
-  <div class="modal-content" @click.stop>
-    <h3>分析文字</h3>
-    <pre class="transcription">{{ currentTranscription }}</pre>
-    <button class="pill sms" @click.stop="legacyModalVisible = false">關閉</button>
-  </div>
-</div>
-  </div>
-  <!-- 登入提示 Modal -->
-  
-  <!-- 提示框 -->
-    <AlertModal
-      :visible="modalVisible"
-      :message="modalMessage"
-      :mode="modalMode"
-      @confirm="onModalConfirm"
-      @close="onModalClose"
-    />
-  
-
 </template>
+
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
@@ -171,17 +168,17 @@ const getErr = (err) =>
 
 /* =============== 自動錄來電 =============== */
 
-const toggleAutoIncoming = async () => {
-  try {
-    if (!window.Android?.setAutoRecordIncoming) {
-      autoIncoming.value = false
-      return showAlert('此裝置不支援：缺少 Android.setAutoRecordIncoming')
-    }
-    window.Android.setAutoRecordIncoming(!!autoIncoming.value)
-  } catch (e) {
-    await showAlert('切換失敗：' + (e?.message || e))
-  }
-}
+// const toggleAutoIncoming = async () => {
+//   try {
+//     if (!window.Android?.setAutoRecordIncoming) {
+//       autoIncoming.value = false
+//       return showAlert('此裝置不支援：缺少 Android.setAutoRecordIncoming')
+//     }
+//     window.Android.setAutoRecordIncoming(!!autoIncoming.value)
+//   } catch (e) {
+//     await showAlert('切換失敗：' + (e?.message || e))
+//   }
+// }
 
 /* =============== Android 回拋（完成 / 額度用盡 / 上傳完成） =============== */
 
@@ -346,14 +343,44 @@ const removeAudio = async (item, index) => {
 }
 
 /* =============== 下載最新檔案 =============== */
+const blobToBase64 = (blob) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(String(reader.result).split(',')[1] || '')
+    reader.onerror = reject
+    reader.readAsDataURL(blob) // 會得到 data:xxx;base64,xxxx
+  })
+
 const downloadAudio = async (item) => {
-  // 改成直接導向，讓 WebView 交給 DownloadManager
-  const url = `/api/Test/download-local?fileName=${encodeURIComponent(item.fileName)}`
-  // 若後端靠 Authorization header 驗證，兩種做法：
-  // 1) 後端改成可用短效簽名網址 / token 當查詢字串
-  // 2) 保持 header，就用上面的 DownloadListener addRequestHeader() 注入
-  window.location.href = url
+  try {
+    // 一樣先把音檔抓成 blob
+    const res = await axios.get('/api/Test/download-local', {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { fileName: item.fileName },
+      responseType: 'blob'
+    })
+    const mime = res.data?.type || 'audio/mp4'
+    const b64  = await blobToBase64(res.data)
+
+    if (window.Android?.saveToDownloadsBase64) {
+      // 丟給原生存到「下載/來訊有詐」
+      window.Android.saveToDownloadsBase64(item.fileName || 'record.m4a', b64, mime)
+    } else {
+      // H5 後備：用 <a download>（在 WebView 未必會落到 Downloads）
+      const blobUrl = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = item.fileName || 'record.m4a'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(blobUrl)
+    }
+  } catch (err) {
+    await showAlert('下載失敗：' + getErr(err))
+  }
 }
+
 
 
 /* =============== 其他功能 =============== */
@@ -375,7 +402,7 @@ const showTranscription = (item) => {
 
 const authHeaders = { Authorization: `Bearer ${token}` }
 // =======================
-// NEW：清理過期音檔（預設 3 天）
+// 清理過期音檔（預設 3 天）
 // =======================
 const cleanupAudios = async (days = 3) => {
   try {
@@ -444,7 +471,7 @@ onMounted(async () => {
       window.Android?.setAuth(
   localStorage.getItem('userToken') || '',
   Number(localStorage.getItem('userId') || 0),
-  'http://192.168.217.152:5001'  // ← API 站台。Android 上傳錄音會打這個
+  'http://192.168.217.144:5001' //  API 站台
 )
 
     } catch {

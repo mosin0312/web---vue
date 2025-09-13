@@ -34,9 +34,9 @@
         </div> -->
 
         <!-- 預覽圖 -->
-        <div v-if="previewUrl" class="preview-section">
+        <!-- <div v-if="previewUrl" class="preview-section">
           <img :src="previewUrl" alt="預覽圖片" class="preview-image" />
-        </div>
+        </div> -->
 
         <!-- 描述 -->
         <div class="input-group">

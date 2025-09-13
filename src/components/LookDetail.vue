@@ -24,14 +24,14 @@
           <input type="url" class="input-field" v-model="link"  readonly/>
         </div>
 
-        <div class="upload-section">
+        <!-- <div class="upload-section">
           <label class="input-label">圖片</label>
-        </div>
+        </div> -->
 
         <!-- 預覽圖 -->
-<div v-if="imageUrl" class="preview-section">
+<!-- <div v-if="imageUrl" class="preview-section">
   <img :src="imageUrl" alt="預覽圖片" class="preview-image" />
-</div>
+</div> -->
 
         <!-- 描述 -->
         <div class="input-group">

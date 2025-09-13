@@ -27,11 +27,11 @@
         </div>
 
         <!-- 圖片上傳 -->
-        <div class="upload-section">
+        <!-- <div class="upload-section">
           <label class="input-label">圖片</label>
           <button class="upload-button" @click="$refs.fileInput.click()">上傳</button>
           <input id="file-upload" type="file" ref="fileInput" @change="handleUpload" accept="image/*" hidden />
-        </div>
+        </div> -->
 
         <!-- 預覽圖 -->
         <div v-if="previewUrl" class="preview-section">
@@ -107,39 +107,39 @@ function clearForm() {
   previewUrl.value = ''
 }
 
-const handleUpload = async (e) => {
-  const file = e.target.files?.[0]
-  if (!file) return
+// const handleUpload = async (e) => {
+//   const file = e.target.files?.[0]
+//   if (!file) return
 
-  // 先顯示本地預覽
-  previewUrl.value = URL.createObjectURL(file)
+//   // 先顯示本地預覽
+//   previewUrl.value = URL.createObjectURL(file)
 
-  const formData = new FormData()
-  // 後端參數名是 imageFile
-  formData.append('imageFile', file)
+//   const formData = new FormData()
+//   // 後端參數名是 imageFile
+//   formData.append('imageFile', file)
 
-  try {
-    const token = localStorage.getItem('userToken') || ''
-    const res = await fetch('/api/Test/suspiciousupload', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData
-    })
+//   try {
+//     const token = localStorage.getItem('userToken') || ''
+//     const res = await fetch('/api/Test/suspiciousupload', {
+//       method: 'POST',
+//       headers: { Authorization: `Bearer ${token}` },
+//       body: formData
+//     })
 
-    const raw = await res.text()
-    let data = {}
-    try { data = JSON.parse(raw) } catch {
-      //
-    }
+//     const raw = await res.text()
+//     let data = {}
+//     try { data = JSON.parse(raw) } catch {
+//       //
+//     }
 
-    if (!res.ok) throw new Error(data?.message || raw || `HTTP ${res.status}`)
-    imageUrl.value = data.imageUrl
-    showAlert('圖片上傳成功')
-  } catch (err) {
-    console.error('圖片上傳失敗：', err)
-    showAlert(`圖片上傳失敗：${err.message}`)
-  }
-}
+//     if (!res.ok) throw new Error(data?.message || raw || `HTTP ${res.status}`)
+//     imageUrl.value = data.imageUrl
+//     showAlert('圖片上傳成功')
+//   } catch (err) {
+//     console.error('圖片上傳失敗：', err)
+//     showAlert(`圖片上傳失敗：${err.message}`)
+//   }
+// }
 
 const handleSubmit = async () => {
   // userId 數字檢查

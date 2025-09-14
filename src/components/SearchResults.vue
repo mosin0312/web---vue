@@ -10,7 +10,7 @@
       <div v-if="phoneBook && Object.keys(phoneBook).length">
         <h2>查詢電話：{{ phone }}</h2>
         <h3><strong>來源：</strong>phoneBook</h3>
-        <p><strong>風險說明：</strong>{{ phoneBook.reason || '無說明' }}</p>
+        <p><strong>評論：</strong>{{ phoneBook.reason || '無評論' }}</p>
         <p><strong>信任度：</strong>{{ phoneBook.trustLevel || '未知' }}</p>
         <a :href="phoneBook.detailUrl" target="_blank">查看更多</a>
       </div>
@@ -18,14 +18,10 @@
       <!-- whosNumber -->
 <div v-if="whosNumber && Object.keys(whosNumber).length">
   <h3><strong>來源：</strong>whosNumber</h3>
-  <p><strong>風險說明：</strong>{{ whosNumber.comment?.content || '無說明' }}</p>
+  <p><strong>留言：</strong>{{ whosNumber.comment?.content || '無留言' }}</p>
   <p><strong>訪問次數：</strong>{{ whosNumber.visitCount || '未知' }}</p>
   <p><strong>最近訪問：</strong>{{ whosNumber.lastVisit || '未知' }}</p>
 
-  <div v-if="whosNumber.comment && typeof whosNumber.comment === 'object'">
-    <p><strong>留言：</strong>{{ whosNumber.comment.content || '無留言' }}</p>
-    <p><strong>時間：</strong>{{ whosNumber.comment.time || '無時間' }}</p>
-  </div>
   <a :href="whosNumber.detailUrl" target="_blank">查看更多</a>
 </div>
 
@@ -33,7 +29,6 @@
       <!-- tellows -->
       <div v-if="tellows && Object.keys(tellows).length">
         <h3><strong>來源：</strong>tellows</h3>
-        <p><strong>風險說明：</strong>{{ tellows.callType || '無說明' }}</p>
         <p><strong>來電類型：</strong>{{ tellows.callType || '未知來電' }}</p>
         <p><strong>來電者姓名：</strong>{{ tellows.callerName || '未知' }}</p>
         <a :href="tellows.detailUrl" target="_blank">查看更多</a>
@@ -44,6 +39,7 @@
       <p>未提供查詢參數</p>
     </div>
   </div>
+
 </template>
 
 
@@ -60,6 +56,7 @@ const phone = searchData.phone
 const phoneBook = searchData.phoneBook || {}
 const whosNumber = searchData.whosNumber || {}
 const tellows = searchData.tellows || {}
+
 
 onUnmounted(() => {
   sessionStorage.removeItem('searchData')

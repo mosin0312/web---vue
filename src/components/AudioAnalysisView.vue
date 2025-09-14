@@ -471,7 +471,7 @@ onMounted(async () => {
       window.Android?.setAuth(
   localStorage.getItem('userToken') || '',
   Number(localStorage.getItem('userId') || 0),
-  'http://192.168.217.144:5001' //  API 站台
+  'http://192.168.217.153:5001' //  API 站台
 )
 
     } catch {

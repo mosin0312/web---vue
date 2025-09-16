@@ -1,0 +1,23 @@
+# === 路徑依你的環境調整 ===
+$py   = 'C:\ocr27\venv\Scripts\python.exe'  # 2.x 環境的 python
+$app  = 'C:\ocr\ocr_server.py'              # 你的 Flask 服務檔案
+$port = 5003                                # Flask 監聽的埠
+
+# 1) 停掉舊的（佔用 5003 的 python）
+$pid = (Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty OwningProcess -Unique)
+if ($pid) { Stop-Process -Id $pid -Force }
+
+# 2) 啟動新的（背景、最小化）
+Start-Process -FilePath $py -ArgumentList $app -WindowStyle Minimized
+
+# 3) 等待就緒並做健康檢查
+$ok = $false
+for ($i=0; $i -lt 30; $i++) {
+  Start-Sleep -Seconds 1
+  try {
+    $r = Invoke-RestMethod "http://127.0.0.1:$port/ocr/health" -TimeoutSec 2
+    if ($r.ok) { $ok = $true; break }
+  } catch {}
+}
+if ($ok) { "✅ OCR OK on :$port" } else { "❌ OCR not responding" }

@@ -98,7 +98,7 @@ import AlertModal from '@/components/AlertModal.vue'
 const router = useRouter()
 const fileInput = ref(null)
 const audioFiles = ref([])
-const autoIncoming = ref(false)
+//const autoIncoming = ref(false)
 const dirPath = ref('')
 
 // ✅ 登入資訊
@@ -458,26 +458,26 @@ onMounted(async () => {
 
   // Android 掛勾
   
-  if (typeof window !== 'undefined') {
-    detachHooks = attachAndroidHooks()
-    // 讀取「自動錄來電」開關
-    try {
-      autoIncoming.value = !!window.Android?.getAutoRecordIncoming?.()
-    } catch {
-      //
-      }
-    // 把登入資訊告訴原生端（供自動上傳使用）
-    try {
-      window.Android?.setAuth(
-  localStorage.getItem('userToken') || '',
-  Number(localStorage.getItem('userId') || 0),
-  'http://192.168.217.153:5001' //  API 站台
-)
+//   if (typeof window !== 'undefined') {
+//     detachHooks = attachAndroidHooks()
+//     // 讀取「自動錄來電」開關
+//     try {
+//       autoIncoming.value = !!window.Android?.getAutoRecordIncoming?.()
+//     } catch {
+//       //
+//       }
+//     // 把登入資訊告訴原生端（供自動上傳使用）
+//     try {
+//       window.Android?.setAuth(
+//   localStorage.getItem('userToken') || '',
+//   Number(localStorage.getItem('userId') || 0),
+//   'http://192.168.217.153:5001' //  API 站台
+// )
 
-    } catch {
-      //
-    }
-  }
+//     } catch {
+//       //
+//     }
+//   }
 
   await fetchAudioList()
 })

@@ -397,7 +397,7 @@ onMounted(() => {
   const token = localStorage.getItem('userToken')
   const role = localStorage.getItem('userRole')
   if (!token || role !== 'User') {
-    showAlert('請先登入', true) // 等使用者按「確定」再跳轉
+    showAlert('請先登入才能使用', true) // 等使用者按「確定」再跳轉
   return
   }
 

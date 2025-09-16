@@ -29,11 +29,35 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
+
+
+
 // ✅ 資料列表
 const appInfoList = ref([])
 
 // ✅ 取得 Token（使用者登入後儲存在 localStorage）
 const token = localStorage.getItem('userToken')
+
+// 公開類型的 TypeCode 對照表
+const PUBLIC_REASON_BY_CODE = {
+  '101': '一接就掛',
+  '102': '詐騙',
+  '103': '推銷/廣告',
+  '104': '騷擾',
+  '199': '其他',
+}
+
+function decodePublicReason(typeCode, extraText) {
+  const code = String(typeCode || '').trim()
+  const label = PUBLIC_REASON_BY_CODE[code] || '其他'
+  if (code === '199') {
+    // 只有「其他」才顯示備註，沒有備註就顯示「其他」
+    const note = (extraText || '').trim()
+    return note ? `其他（${note}）` : '其他'
+  }
+  return label
+}
+
 
 // ✅ onMounted 時呼叫新的 API
 onMounted(async () => {
@@ -47,7 +71,7 @@ onMounted(async () => {
     // ✅ 處理資料：取出 PhoneNumber 與 ExtraText
     appInfoList.value = response.data.map(item => ({
       phone: item.phoneNumber,
-      reason: item.extraText || '未提供原因'
+      reason: decodePublicReason(item.typeCode, item.extraText),
     }))
   } catch (error) {
     console.error('取得公開電話資料失敗:', error)

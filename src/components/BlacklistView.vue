@@ -392,9 +392,9 @@ if (editForm.value.reason === OTHER_LABEL && !extra) {
 
   try {
     const body = {
-      UserId: userId, TypeCode: typeCode, ExtraText: extra }
+      UserId: userId,PhoneNumber: editForm.value.phone, TypeCode: typeCode, ExtraText: extra }
     await axios.post('/api/Test/UpdatePhone', body, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
     })
 
     // 後端 OK → 更新本地資料並同步 localStorage

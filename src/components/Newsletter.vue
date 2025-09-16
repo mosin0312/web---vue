@@ -1,5 +1,5 @@
 <template>
-  <div class="main-container">
+  <div v-if="isAuthed" class="main-container">
     <!-- Header -->
     <header class="header">
       <img src="@/assets/icons/header-icon.svg" alt="Logo" class="header-icon" />
@@ -63,7 +63,33 @@
     </div>
   </div>
 
-  <AlertModal v-if="modalVisible" :message="modalMessage" @close="handleModalClose" />
+  <!-- 新增：訪客畫面 -->
+  <div v-else class="guest-gate">
+    <header class="header">
+      <img src="@/assets/icons/header-icon.svg" class="header-icon" alt="Logo" />
+      <span class="title">簡訊</span>
+</header>
+       <!-- 分類按鈕 -->
+    <div class="sms-category-options">
+      <button :class="['button-sms-category', selectedCategory === 'general' ? 'active' : '']" @click="changeCategory('general')">通訊錄簡訊</button>
+      <button :class="['button-sms-category', selectedCategory === 'strange' ? 'active' : '']" @click="changeCategory('strange')">非通訊錄簡訊</button>
+      <button :class="['button-sms-category', selectedCategory === 'screenshot' ? 'active' : '']" @click="changeCategory('screenshot')">截圖分析</button>
+    </div>
+    
+    <!-- 無簡訊提示 -->
+    <div v-if="filteredSmsList.length === 0" class="no-sms">尚無簡訊</div>
+
+    
+
+  </div>
+
+  <AlertModal
+  :visible="showModal"
+  :message="modalMessage"
+  @confirm="onModalConfirm"
+  @close="handleModalClose"
+/>
+
 </template>
 
 
@@ -72,25 +98,63 @@ import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { logout } from '@/router/useAuth'
+import AlertModal from '@/components/AlertModal.vue'
 
 const router = useRouter()
 const selectedCategory = ref('general')
 const smsList = ref([])
 const contacts = ref([])
+// ✅ 新增：控制是否通過驗證才渲染與啟動功能
+const isAuthed = ref(false)
 
-const modalVisible = ref(false)
+
+// ===== Modal 狀態（支援 await）=====
+const showModal = ref(false)
 const modalMessage = ref('')
 const shouldRedirect = ref(false)
+const modalMode = ref('alert')         // 'alert' | 'confirm'
+const pendingResolve = ref(null)       // 用來 resolve Promise
 
-function showAlert(message, redirect = false) {
+// alert：只有「確定」，關閉也算 true。第二參數保留相容舊寫法(布林)。
+function showAlert(message, redirectToHomeOrOptions = false) {
+  const redirectToHome = typeof redirectToHomeOrOptions === 'boolean'
+    ? redirectToHomeOrOptions
+    : !!redirectToHomeOrOptions?.redirectToHome
+
   modalMessage.value = message
-  modalVisible.value = true
-  shouldRedirect.value = redirect
+  modalMode.value = 'alert'
+  showModal.value = true
+  shouldRedirect.value = redirectToHome
+
+  return new Promise((resolve) => { pendingResolve.value = resolve })
 }
+
+// 按「確定」
+function onModalConfirm() {
+  showModal.value = false
+  const r = pendingResolve.value; pendingResolve.value = null
+  r?.(true)
+
+  if (shouldRedirect.value) {
+    router.push({ path: '/', query: {}, replace: true })
+    shouldRedirect.value = false
+  }
+}
+
+// 關閉（點背景 / X / 子元件自動 close）
 function handleModalClose() {
-  modalVisible.value = false
-  if (shouldRedirect.value) router.push('/login')
+  showModal.value = false
+  const r = pendingResolve.value; pendingResolve.value = null
+  // alert 視同已讀(true)；confirm 視為取消(false)
+  r?.(modalMode.value === 'alert')
+
+  if (shouldRedirect.value) {
+    router.push({ path: '/', query: {}, replace: true })
+    shouldRedirect.value = false
+  }
 }
+
+
 
 /* ---------------- Utils ---------------- */
 const normalizePhone = (phone) => {
@@ -186,41 +250,6 @@ function endRefresh() {
   resetPull()
 }
 
-/* ---------------- Sync loop & first load ---------------- */
-let syncInterval = null
-
-onMounted(() => {
-  const token = localStorage.getItem('userToken')
-  const role = localStorage.getItem('userRole')
-  if (!token || role !== 'User') {
-    showAlert('請先登入', true)
-    return
-  }
-  if (router.currentRoute.value.query.loggedOut === 'true') {
-    logout()
-    router.replace({ query: {} })
-  }
-
-  const cached = localStorage.getItem('smsList')
-  if (cached) {
-    smsList.value = JSON.parse(cached)
-    updateDisplayNames()
-  }
-
-  setTimeout(() => {
-    window.Android?.getSmsInbox?.()
-    window.Android?.getContacts?.()
-  }, 1000)
-
-  // 週期同步（可自行調整）
-  syncInterval = setInterval(() => {
-    window.Android?.getSmsInbox?.()
-    window.Android?.getContacts?.()
-  }, 60000)
-})
-
-onBeforeUnmount(() => { if (syncInterval) clearInterval(syncInterval) })
-
 /* ---------------- Core: ingest & reconcile ---------------- */
 /**
  * 將 Android 推來的訊息合併進前端狀態
@@ -229,7 +258,9 @@ onBeforeUnmount(() => { if (syncInterval) clearInterval(syncInterval) })
  * @param {boolean} fullSync 這批是否為完整同步（true 時會先剔除同來源但不在此批的舊資料）
  */
 const dispatchSmsProcessing = async (smsArray, source = 'sms', fullSync = false) => {
+  if (!isAuthed.value || !Array.isArray(smsArray) || smsArray.length === 0) return
   const token = localStorage.getItem('userToken')
+  if (!token) return
 
   const incomingIds = new Set((smsArray || []).map(s => s.id || generateSmsId(s)))
 
@@ -318,42 +349,34 @@ const dispatchSmsProcessing = async (smsArray, source = 'sms', fullSync = false)
   localStorage.setItem('smsList', JSON.stringify(smsToStore))
 }
 
-/* ---------------- Events (整合刷新收斂) ---------------- */
-window.addEventListener('contacts-from-android', (e) => {
-  contacts.value = e.detail.map(c => ({ name: c.name, phone: normalizePhone(c.phone) }))
 
+/* ---------- event handlers  ---------- */
+function onContactsFromAndroid(e) {
+  if (!isAuthed.value) return
+  const arr = (e.detail || []).map(c => ({ name: c.name, phone: normalizePhone(c.phone) }))
+  contacts.value = arr
   if (refreshInProgress.value) {
     refreshPending -= 1
     if (refreshPending <= 0) endRefresh()
   }
-})
-
-const _dispatchSmsProcessing = dispatchSmsProcessing
-
-window.addEventListener('sms-from-android', (e) => {
-  // 完整同步：會剔除同來源已刪除的項目
-  Promise
-    .resolve(_dispatchSmsProcessing(e.detail, 'sms', true))
-    .finally(() => {
-      if (refreshInProgress.value) {
-        refreshPending -= 1
-        if (refreshPending <= 0) endRefresh()
-      }
-    })
-})
-
-window.addEventListener('mms-from-android', (e) => {
+}
+function onSmsFromAndroid(e) {
+  if (!isAuthed.value) return
+  Promise.resolve(dispatchSmsProcessing(e.detail, 'sms', true)).finally(() => {
+    if (refreshInProgress.value) {
+      refreshPending -= 1
+      if (refreshPending <= 0) endRefresh()
+    }
+  })
+}
+function onMmsFromAndroid(e) {
   const mmsMessages = (e.detail || []).map(s => ({ ...s, read: 1 }))
-  // 完整同步
-  _dispatchSmsProcessing(mmsMessages, 'mms', true)
-})
-
-window.addEventListener('sms-from-notification', (e) => {
+  dispatchSmsProcessing(mmsMessages, 'mms', true)
+}
+function onSmsFromNotification(e) {
   const notificationSms = (e.detail || []).map(s => ({ ...s, read: 1 }))
-  // 通知資料為增量，非完整同步
-  _dispatchSmsProcessing(notificationSms, 'rcs', false)
-})
-
+  dispatchSmsProcessing(notificationSms, 'rcs', false)
+}
 /* ---------------- View helpers ---------------- */
 const changeCategory = (category) => {
   selectedCategory.value = category
@@ -379,11 +402,72 @@ const filteredSmsList = computed(() => {
   }
   return Array.from(map.values())
 })
+
+/* ---------- lifecycle ---------- */
+let syncInterval = null
+
+onMounted(() => {
+  // auth gate
+  const token = localStorage.getItem('userToken')
+  const role = localStorage.getItem('userRole')
+  if (!token || role !== 'User') {
+    showAlert('請先登入才能使用', true) // 等使用者按「確定」再跳轉
+  return
+  }
+  if (router.currentRoute.value.query.loggedOut === 'true') {
+    logout()
+    router.replace({ query: {} })
+  }
+  isAuthed.value = true
+
+  // cache
+  const cached = localStorage.getItem('smsList')
+  if (cached) {
+    smsList.value = JSON.parse(cached)
+    updateDisplayNames()
+  }
+
+  // register events (only after auth)
+  window.addEventListener('contacts-from-android', onContactsFromAndroid)
+  window.addEventListener('sms-from-android', onSmsFromAndroid)
+  window.addEventListener('mms-from-android', onMmsFromAndroid)
+  window.addEventListener('sms-from-notification', onSmsFromNotification)
+
+  // kick off Android bridge
+  setTimeout(() => {
+    window.Android?.getSmsInbox?.()
+    window.Android?.getContacts?.()
+  }, 1000)
+
+  // periodic sync
+  syncInterval = setInterval(() => {
+    window.Android?.getSmsInbox?.()
+    window.Android?.getContacts?.()
+  }, 60000)
+})
+
+onBeforeUnmount(() => {
+  if (syncInterval) clearInterval(syncInterval)
+  window.removeEventListener('contacts-from-android', onContactsFromAndroid)
+  window.removeEventListener('sms-from-android', onSmsFromAndroid)
+  window.removeEventListener('mms-from-android', onMmsFromAndroid)
+  window.removeEventListener('sms-from-notification', onSmsFromNotification)
+})
 </script>
 
 
 
 <style scoped>
+.guest-gate {
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(180deg, #f9d4e0, #ffffff);
+  display: flex; flex-direction: column;
+}
+.gate-body {
+  margin-top: 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
 .main-container {
   width: 100%;
   height: 100vh;

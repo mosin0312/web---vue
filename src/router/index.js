@@ -46,7 +46,7 @@ const routes = [
   {path: '/home',component:Home},//主頁
   {path: '/phonecard',component:PhoneCard},//通話紀錄
   {path: '/search-phone',component:SearchResults},//電話搜尋結果
-  {path:'/audio-analysis',component:AudioAnalysisView},//錄音分析
+  {path:'/audio_analysis',component:AudioAnalysisView},//錄音分析
   {path:'/blacklist',component:BlacklistView},//黑名單
   {path:'/appinfo',component:APPInformation},
   {path:'/userreport',component:UserReports},

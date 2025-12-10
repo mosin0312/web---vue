@@ -32,7 +32,7 @@
 
         <div
   class="match-info"
-  v-if="msg.text"  <!-- 只要有訊息文字就顯示這個區塊 -->
+  v-if="msg.text"  
 >
   <!-- 後端回傳的關鍵字 -->
   <span v-if="msg.matchedKeywords && msg.matchedKeywords.length">

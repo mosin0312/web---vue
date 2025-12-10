@@ -30,10 +30,30 @@
           </p>
         </div>
 
-        <div class="match-info" v-if="msg.matchedKeywords.length || msg.matchedScamUrls.length">
-          <span v-if="msg.matchedKeywords.length">關鍵字：{{ msg.matchedKeywords.join(', ') }}</span><br />
-          <span v-if="msg.matchedScamUrls.length">詐騙網址：{{ msg.matchedScamUrls.join(', ') }}</span>
-        </div>
+        <div
+  class="match-info" v-if="
+    (msg.matchedKeywords && msg.matchedKeywords.length) || (msg.matchedScamUrls && msg.matchedScamUrls.length) ||
+    (msg.matchedTopKeywords && msg.matchedTopKeywords.length) || msg.ruleSuspicious || (msg.matchedPatterns && msg.matchedPatterns.length) ">
+
+  <span v-if="msg.matchedKeywords && msg.matchedKeywords.length">
+    關鍵字：{{ msg.matchedKeywords.join(', ') }}
+  </span><br v-if="msg.matchedKeywords && msg.matchedKeywords.length" />
+
+  <span v-if="msg.matchedScamUrls && msg.matchedScamUrls.length">
+    詐騙網址：{{ msg.matchedScamUrls.join(', ') }}
+  </span><br v-if="msg.matchedScamUrls && msg.matchedScamUrls.length" />
+
+  <!-- NEW -->
+  <span v-if="msg.ruleSuspicious">AI 關鍵字評估：有疑慮</span>
+  <span v-else>AI 關鍵字評估：無疑慮</span><br />
+  <span v-if="msg.matchedTopKeywords && msg.matchedTopKeywords.length">
+  熱門詐騙關鍵字：{{ msg.matchedTopKeywords.join(', ') }}
+  </span>
+  <span v-if="msg.matchedPatterns?.length">
+  語意模式命中：{{ msg.matchedPatterns.join('、') }}
+</span>
+
+</div>
 
         <div class="info-row">
           <span class="message-time">{{ msg.time }}</span>
@@ -57,6 +77,8 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
+import { topKeywords } from '@/router/topKeywords'
+
 
 const route = useRoute()
 const router = useRouter()
@@ -109,8 +131,383 @@ const extractLink = (text) => {
 const normalizePhone = (phone) =>
   phone?.replace(/\D/g, '').replace(/^886/, '0')
 
+
+// ---------- 🔍 AI 關鍵字＋語意規則（純前端）區塊 ----------
+
+// 文字轉成比較乾淨的版本
+const normalizeText = (text) =>
+  (text || '').replace(/\s+/g, ' ').trim()
+
+
+// 簡單工具：確認文字中是否包含一組詞的任一個
+const containsAny = (text, words) =>
+  words.some(w => text.includes(w))
+
+const checkRuleSuspicious = (text) => {
+  if (!text) {
+    return {
+      ruleSuspicious: false,
+      matchedTopKeywords: [],
+      matchedPatterns: []
+    }
+  }
+
+  const normalized = normalizeText(text)
+
+  // 1️⃣ 先做 Top100 關鍵字命中
+  const matchedTopKeywords = topKeywords.filter(k =>
+    normalized.includes(k)
+  )
+
+  // 先記錄 pattern 名稱（之後畫面要顯示用）
+  const matchedPatterns = []
+
+  // 2️⃣ 30 種語意 pattern
+  const patterns = [
+    // 1. 帳戶凍結 / 停權
+    (t) => {
+      if (t.includes('帳戶') && containsAny(t, ['凍結', '停權', '限制', '管制'])) {
+        matchedPatterns.push('帳戶凍結/停權')
+        return true
+      }
+      return false
+    },
+
+    // 2. 訂單異常 + 退款 / 退費
+    (t) => {
+      if (t.includes('訂單') &&
+          containsAny(t, ['異常', '錯誤', '取消']) &&
+          containsAny(t, ['退款', '退費', '返還', '重複扣款'])) {
+        matchedPatterns.push('訂單異常退款')
+        return true
+      }
+      return false
+    },
+
+    // 3. 信用卡異常 + 驗證 / 停用
+    (t) => {
+      if (t.includes('信用卡') &&
+          containsAny(t, ['異常', '錯誤']) &&
+          containsAny(t, ['驗證', '停用', '凍結'])) {
+        matchedPatterns.push('信用卡異常驗證')
+        return true
+      }
+      return false
+    },
+
+    // 4. 分期付款 + 解除設定 / 點數
+    (t) => {
+      if (containsAny(t, ['分期', '分期付款']) &&
+          containsAny(t, ['解除', '取消', '設定']) &&
+          containsAny(t, ['點數', '手續費'])) {
+        matchedPatterns.push('分期付款解除設定')
+        return true
+      }
+      return false
+    },
+
+    // 5. 客服通知 + 帳務異常
+    (t) => {
+      if (t.includes('客服') &&
+          containsAny(t, ['帳務', '帳戶']) &&
+          containsAny(t, ['異常', '風險', '錯誤'])) {
+        matchedPatterns.push('客服帳務異常')
+        return true
+      }
+      return false
+    },
+
+    // 6. ATM 操作 + 設定 / 啟用
+    (t) => {
+      if (t.includes('ATM') &&
+          containsAny(t, ['操作', '設定', '啟用']) &&
+          containsAny(t, ['帳戶', '分期', '服務'])) {
+        matchedPatterns.push('ATM操作設定')
+        return true
+      }
+      return false
+    },
+
+    // 7. 轉帳錯誤 + 需協助處理
+    (t) => {
+      if (containsAny(t, ['轉帳', '匯款']) &&
+          containsAny(t, ['錯誤', '失敗', '異常']) &&
+          containsAny(t, ['協助', '處理', '更正'])) {
+        matchedPatterns.push('轉帳錯誤需處理')
+        return true
+      }
+      return false
+    },
+
+    // 8. 手機銀行 / 網路銀行 + 綁定 / 登入異常
+    (t) => {
+      if (containsAny(t, ['手機銀行', '網路銀行']) &&
+          containsAny(t, ['綁定', '登入']) &&
+          containsAny(t, ['異常', '風險', '錯誤'])) {
+        matchedPatterns.push('手機銀行綁定異常')
+        return true
+      }
+      return false
+    },
+
+    // 9. 欠費 + 停話 / 暫停服務
+    (t) => {
+      if (containsAny(t, ['欠費', '未繳']) &&
+          containsAny(t, ['停話', '暫停', '中止']) &&
+          containsAny(t, ['電信', '門號', '電話'])) {
+        matchedPatterns.push('電信欠費停話')
+        return true
+      }
+      return false
+    },
+
+    // 10. 國稅 / 繳稅 + 資料錯誤
+    (t) => {
+      if (containsAny(t, ['國稅局', '稅務', '繳稅']) &&
+          containsAny(t, ['資料', '資訊']) &&
+          containsAny(t, ['錯誤', '異常', '更正'])) {
+        matchedPatterns.push('繳稅資料錯誤')
+        return true
+      }
+      return false
+    },
+
+    // 11. 投資 + 保證獲利
+    (t) => {
+      if (t.includes('投資') &&
+          containsAny(t, ['保證', '穩賺', '穩定']) &&
+          containsAny(t, ['獲利', '收益', '回報'])) {
+        matchedPatterns.push('投資保證獲利')
+        return true
+      }
+      return false
+    },
+
+    // 12. 虛擬貨幣 + 群組 / 指導
+    (t) => {
+      if (containsAny(t, ['虛擬貨幣', '虛擬幣', '加密貨幣', '比特幣']) &&
+          containsAny(t, ['群組', '社群']) &&
+          containsAny(t, ['老師', '導師', '指導'])) {
+        matchedPatterns.push('虛擬貨幣導師群組')
+        return true
+      }
+      return false
+    },
+
+    // 13. 股票 + 內線消息 / 把握機會
+    (t) => {
+      if (t.includes('股票') &&
+          containsAny(t, ['內線', '消息']) &&
+          containsAny(t, ['把握', '機會', '穩賺'])) {
+        matchedPatterns.push('股票內線機會')
+        return true
+      }
+      return false
+    },
+
+    // 14. LINE 群組 + 分析師 / 報牌
+    (t) => {
+      if (containsAny(t, ['LINE群組', '群組']) &&
+          containsAny(t, ['分析師', '老師']) &&
+          containsAny(t, ['報牌', '報明牌', '帶單'])) {
+        matchedPatterns.push('投資群組報牌')
+        return true
+      }
+      return false
+    },
+
+    // 15. 期貨 / 外匯 + 穩定收益
+    (t) => {
+      if (containsAny(t, ['期貨', '外匯']) &&
+          containsAny(t, ['穩定', '穩健']) &&
+          containsAny(t, ['收益', '獲利', '回報'])) {
+        matchedPatterns.push('期貨外匯穩定收益')
+        return true
+      }
+      return false
+    },
+
+    // 16. 儲值 + 回饋 / 點數
+    (t) => {
+      if (containsAny(t, ['儲值', '充值']) &&
+          containsAny(t, ['回饋', '贈送']) &&
+          t.includes('點數')) {
+        matchedPatterns.push('儲值點數回饋')
+        return true
+      }
+      return false
+    },
+
+    // 17. 低成本 + 高報酬
+    (t) => {
+      if (containsAny(t, ['低成本', '小資', '少量', '小額']) &&
+          containsAny(t, ['高報酬', '高獲利', '高收益'])) {
+        matchedPatterns.push('低成本高報酬投資')
+        return true
+      }
+      return false
+    },
+
+    // 18. 會員分紅 + 手續費
+    (t) => {
+      if (containsAny(t, ['會員', 'VIP']) &&
+          t.includes('分紅') &&
+          containsAny(t, ['手續費', '代繳'])) {
+        matchedPatterns.push('會員分紅手續費')
+        return true
+      }
+      return false
+    },
+
+    // 19. 涉嫌洗錢 + 配合調查
+    (t) => {
+      if (t.includes('洗錢') &&
+          containsAny(t, ['涉嫌', '涉及']) &&
+          containsAny(t, ['配合', '調查'])) {
+        matchedPatterns.push('涉嫌洗錢配合調查')
+        return true
+      }
+      return false
+    },
+
+    // 20. 法院傳票 + 出庭 / 移送
+    (t) => {
+      if (t.includes('法院') &&
+          containsAny(t, ['傳票', '出庭', '移送'])) {
+        matchedPatterns.push('法院傳票出庭')
+        return true
+      }
+      return false
+    },
+
+    // 21. 政府 / 戶政 / 勞保 / 健保 + 更新資料
+    (t) => {
+      if (containsAny(t, ['戶政', '勞保', '健保', '政府機關']) &&
+          containsAny(t, ['更新', '更正', '補件']) &&
+          t.includes('資料')) {
+        matchedPatterns.push('公家機關資料更新')
+        return true
+      }
+      return false
+    },
+
+    // 22. 健保 / 補助 + 異常 / 停發
+    (t) => {
+      if (containsAny(t, ['健保', '補助', '津貼']) &&
+          containsAny(t, ['異常', '停發', '中止', '錯誤'])) {
+        matchedPatterns.push('補助/健保異常')
+        return true
+      }
+      return false
+    },
+
+    // 23. 罰單未繳 + 系統 / 帳務問題
+    (t) => {
+      if (containsAny(t, ['罰單', '違規']) &&
+          containsAny(t, ['未繳', '逾期']) &&
+          containsAny(t, ['系統', '帳務'])) {
+        matchedPatterns.push('罰單未繳疑慮')
+        return true
+      }
+      return false
+    },
+
+    // 24. 海關包裹滯留 + 清關費
+    (t) => {
+      if (containsAny(t, ['海關', '關務']) &&
+          containsAny(t, ['包裹', '貨物']) &&
+          containsAny(t, ['滯留', '扣留']) &&
+          containsAny(t, ['清關費', '關稅', '手續費'])) {
+        matchedPatterns.push('海關包裹滯留清關費')
+        return true
+      }
+      return false
+    },
+
+    // 25. 包裹地址錯誤 + 點擊連結
+    (t) => {
+      if (containsAny(t, ['包裹', '宅配', '物流']) &&
+          containsAny(t, ['地址', '收件人']) &&
+          containsAny(t, ['錯誤', '不完整']) &&
+          containsAny(t, ['點擊', '連結', '網址'])) {
+        matchedPatterns.push('宅配地址錯誤連結')
+        return true
+      }
+      return false
+    },
+
+    // 26. 交友 / 認識 + 匯款 / 幫忙
+    (t) => {
+      if (containsAny(t, ['交友', '認識', '朋友', '網友']) &&
+          containsAny(t, ['匯款', '借錢', '幫忙轉帳'])) {
+        matchedPatterns.push('交友匯款請求')
+        return true
+      }
+      return false
+    },
+
+    // 27. 貨到付款 + 退款流程 / 手續費
+    (t) => {
+      if (t.includes('貨到付款') &&
+          containsAny(t, ['退款', '退費']) &&
+          containsAny(t, ['手續費', '流程'])) {
+        matchedPatterns.push('貨到付款退款詐騙')
+        return true
+      }
+      return false
+    },
+
+    // 28. 門號 / 手機 + 異地登入 / 暫停
+    (t) => {
+      if (containsAny(t, ['門號', '手機']) &&
+          containsAny(t, ['異地登入', '異常登入', '風險登入']) &&
+          containsAny(t, ['暫停', '停用', '保護'])) {
+        matchedPatterns.push('門號異地登入暫停')
+        return true
+      }
+      return false
+    },
+
+    // 29. 驗證碼 + 要你提供
+    (t) => {
+      if (t.includes('驗證碼') &&
+          containsAny(t, ['提供', '傳給', '回覆', '告知'])) {
+        matchedPatterns.push('要求提供驗證碼')
+        return true
+      }
+      return false
+    },
+
+    // 30. 中獎 / 抽獎 + 手續費 / 代繳
+    (t) => {
+      if (containsAny(t, ['中獎', '抽獎', '得獎']) &&
+          containsAny(t, ['手續費', '代繳', '保證金'])) {
+        matchedPatterns.push('中獎手續費詐騙')
+        return true
+      }
+      return false
+    }
+  ]
+
+  // 3️⃣ 依序跑所有 pattern，只要有一個中就算「有疑慮」
+  const hitPattern = patterns.some(fn => fn(normalized))
+
+  // 4️⃣ 最終判斷：
+  //    - Top100 命中 >= 2 → 有疑慮
+  //    - 或命中任一語意 pattern → 有疑慮
+  const ruleSuspicious = matchedTopKeywords.length >= 2 || hitPattern
+
+  return {
+    ruleSuspicious,
+    matchedTopKeywords,
+    matchedPatterns
+  }
+}
+
+// ---------- 🔍 分析簡訊主流程 ----------
+
 const analyzeMessages = async (smsArray) => {
-  const token = localStorage.getItem('userToken')  
+  const token = localStorage.getItem('userToken')
   const targetPhone = normalizePhone(phone.value)
 
   const filtered = smsArray.filter(sms =>
@@ -119,48 +516,58 @@ const analyzeMessages = async (smsArray) => {
   )
 
   const analyzed = await Promise.all(filtered.map(async sms => {
-  let risk = 'unknown'
-  let riskText = '未知'
-  let matchedKeywords = []
-  let matchedScamUrls = []
+    let risk = 'unknown'
+    let riskText = '未知'
+    let matchedKeywords = []
+    let matchedScamUrls = []
 
-  try {
-    const response = await api.post(
-      '/api/Test',
-      { message: sms.body },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
+    try {
+      const response = await api.post(
+        '/api/Test',
+        { message: sms.body },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
-      }
-    )
+      )
 
-    const data = response.data
-    console.log('📦 CheckRisk 回傳資料：', data)
+      const data = response.data
+      console.log('📦 CheckRisk 回傳資料：', data)
 
-    risk = convertRisk(data.riskLevel)
-    riskText = data.riskLevel
-    matchedKeywords = data.matchedKeywords || []
-    matchedScamUrls = data.matchedScamUrls || []
+      risk = convertRisk(data.riskLevel)
+      riskText = data.riskLevel
+      matchedKeywords = data.matchedKeywords || []
+      matchedScamUrls = data.matchedScamUrls || []
+    } catch (e) {
+      console.warn('❌ CheckRisk API 錯誤：', e)
+    }
 
-  } catch (e) {
-    console.warn('❌ CheckRisk API 錯誤：', e)
-  }
+    // 🔐 前 100 關鍵字＋語意規則（純前端）
+    const {
+      ruleSuspicious,
+      matchedTopKeywords,
+      matchedPatterns
+    } = checkRuleSuspicious(sms.body)
 
-  const isSelf = sms.type === 2 || sms.fromMe
+    const isSelf = sms.type === 2 || sms.fromMe
 
-  return {
-    position: isSelf ? 'right' : 'left',
-    text: sms.body,
-    link: extractLink(sms.body),
-    image: sms.image || '',
-    time: new Date(Number(sms.date)).toISOString(),
-    risk,
-    riskText,
-    matchedKeywords,
-    matchedScamUrls
-  }
-}))
+    return {
+      position: isSelf ? 'right' : 'left',
+      text: sms.body,
+      link: extractLink(sms.body),
+      image: sms.image || '',
+      time: new Date(Number(sms.date)).toISOString(),
+      risk,
+      riskText,
+      matchedKeywords,
+      matchedScamUrls,
+      ruleSuspicious,
+      matchedTopKeywords,
+      matchedPatterns
+    }
+  }))
+
 
 
   const existingKeys = new Set(messages.value.map(

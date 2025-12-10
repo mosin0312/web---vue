@@ -31,28 +31,37 @@
         </div>
 
         <div
-  class="match-info" v-if="
-    (msg.matchedKeywords && msg.matchedKeywords.length) || (msg.matchedScamUrls && msg.matchedScamUrls.length) ||
-    (msg.matchedTopKeywords && msg.matchedTopKeywords.length) || msg.ruleSuspicious || (msg.matchedPatterns && msg.matchedPatterns.length) ">
-
+  class="match-info"
+  v-if="msg.text"  <!-- 只要有訊息文字就顯示這個區塊 -->
+>
+  <!-- 後端回傳的關鍵字 -->
   <span v-if="msg.matchedKeywords && msg.matchedKeywords.length">
     關鍵字：{{ msg.matchedKeywords.join(', ') }}
-  </span><br v-if="msg.matchedKeywords && msg.matchedKeywords.length" />
+  </span>
+  <br v-if="msg.matchedKeywords && msg.matchedKeywords.length" />
 
+  <!-- 後端回傳的詐騙網址 -->
   <span v-if="msg.matchedScamUrls && msg.matchedScamUrls.length">
     詐騙網址：{{ msg.matchedScamUrls.join(', ') }}
-  </span><br v-if="msg.matchedScamUrls && msg.matchedScamUrls.length" />
-
-  <!-- NEW -->
-  <span v-if="msg.ruleSuspicious">AI 關鍵字評估：有疑慮</span>
-  <span v-else>AI 關鍵字評估：無疑慮</span><br />
-  <span v-if="msg.matchedTopKeywords && msg.matchedTopKeywords.length">
-  熱門詐騙關鍵字：{{ msg.matchedTopKeywords.join(', ') }}
   </span>
-  <span v-if="msg.matchedPatterns?.length">
-  語意模式命中：{{ msg.matchedPatterns.join('、') }}
-</span>
+  <br v-if="msg.matchedScamUrls && msg.matchedScamUrls.length" />
 
+  <!-- 一定會顯示：AI 關鍵字評估 -->
+  <span>
+    AI 關鍵字評估：{{ msg.ruleSuspicious ? '有疑慮' : '無疑慮' }}
+  </span>
+  <br />
+
+  <!-- 前 100 熱門詐騙關鍵字 -->
+  <span v-if="msg.matchedTopKeywords && msg.matchedTopKeywords.length">
+    熱門詐騙關鍵字：{{ msg.matchedTopKeywords.join(', ') }}
+  </span>
+  <br v-if="msg.matchedTopKeywords && msg.matchedTopKeywords.length" />
+
+  <!-- 30 種語意 pattern 命中 -->
+  <span v-if="msg.matchedPatterns && msg.matchedPatterns.length">
+    語意模式命中：{{ msg.matchedPatterns.join('、') }}
+  </span>
 </div>
 
         <div class="info-row">

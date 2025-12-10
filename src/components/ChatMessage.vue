@@ -60,8 +60,8 @@
 
   <!-- 30 種語意 pattern 命中 -->
   <span v-if="msg.matchedPatterns && msg.matchedPatterns.length">
-    語意模式命中：{{ msg.matchedPatterns.join('、') }}
-  </span>
+  語意模式命中：{{ msg.matchedPatterns.join('、') }}
+</span>
 </div>
 
         <div class="info-row">

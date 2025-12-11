@@ -30,39 +30,31 @@
           </p>
         </div>
 
-        <div
-  class="match-info"
-  v-if="msg.text"  
->
-  <!-- 後端回傳的關鍵字 -->
+       <div class="match-info">
+
   <span v-if="msg.matchedKeywords && msg.matchedKeywords.length">
     關鍵字：{{ msg.matchedKeywords.join(', ') }}
-  </span>
-  <br v-if="msg.matchedKeywords && msg.matchedKeywords.length" />
+  </span><br v-if="msg.matchedKeywords && msg.matchedKeywords.length" />
 
-  <!-- 後端回傳的詐騙網址 -->
   <span v-if="msg.matchedScamUrls && msg.matchedScamUrls.length">
     詐騙網址：{{ msg.matchedScamUrls.join(', ') }}
-  </span>
-  <br v-if="msg.matchedScamUrls && msg.matchedScamUrls.length" />
+  </span><br v-if="msg.matchedScamUrls && msg.matchedScamUrls.length" />
 
-  <!-- 一定會顯示：AI 關鍵字評估 -->
   <span>
-    AI 關鍵字評估：{{ msg.ruleSuspicious ? '有疑慮' : '無疑慮' }}
-  </span>
-  <br />
+    AI 關鍵字評估：
+    <strong v-if="msg.ruleSuspicious">有疑慮</strong>
+    <span v-else>無疑慮</span>
+  </span><br />
 
-  <!-- 前 100 熱門詐騙關鍵字 -->
   <span v-if="msg.matchedTopKeywords && msg.matchedTopKeywords.length">
     熱門詐騙關鍵字：{{ msg.matchedTopKeywords.join(', ') }}
   </span>
-  <br v-if="msg.matchedTopKeywords && msg.matchedTopKeywords.length" />
 
-  <!-- 30 種語意 pattern 命中 -->
   <span v-if="msg.matchedPatterns && msg.matchedPatterns.length">
-  語意模式命中：{{ msg.matchedPatterns.join('、') }}
-</span>
+    語意模式命中：{{ msg.matchedPatterns.join('、') }}
+  </span>
 </div>
+
 
         <div class="info-row">
           <span class="message-time">{{ msg.time }}</span>
@@ -621,6 +613,7 @@ onMounted(() => {
   window.addEventListener('sms-from-android', (e) => analyzeMessages(e.detail || []))
   window.addEventListener('sms-from-notification', (e) => analyzeMessages(e.detail || []))
  window.addEventListener('mms-from-android', (e) => analyzeMessages(e.detail || []))
+ 
 })
 
 </script>

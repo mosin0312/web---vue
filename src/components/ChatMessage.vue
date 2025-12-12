@@ -49,10 +49,10 @@
     </div>
   </div>
 
-  <div v-if="msg.matchedPatterns && msg.matchedPatterns.length" class="pattern-row">
+  <!-- <div v-if="msg.matchedPatterns && msg.matchedPatterns.length" class="pattern-row">
     <span class="detail-label">語意分析：</span>
     <span>{{ msg.matchedPatterns.join('、') }}</span>
-  </div>
+  </div> -->
 
   <div v-if="msg.matchedScamUrls && msg.matchedScamUrls.length" class="url-row">
     <span class="danger-label">⚠️ 詐騙網址：</span>
@@ -142,7 +142,7 @@ const normalizePhone = (phone) =>
 // ---------- 🔍 統計客觀評分＋語意規則 ----------
 
 const normalizeText = (text) => (text || '').replace(/\s+/g, ' ').trim()
-const containsAny = (text, words) => words.some(w => text.includes(w))
+// const containsAny = (text, words) => words.some(w => text.includes(w))
 
 // 🏆 核心演算法
 const calculateObjectiveRisk = (text) => {
@@ -152,10 +152,10 @@ const calculateObjectiveRisk = (text) => {
 
   const normalized = normalizeText(text)
   let totalScore = 0
-  let matchedDetails = [] 
+  let matchedDetails = []
 
   // 1️⃣ 關鍵字權重計分
-  // ✅ 這裡會自動使用上方 import 進來的 scamKeywords
+  // ✅ 確保 scamKeywords 有被正確 import
   for (const [word, weight] of Object.entries(scamKeywords)) {
     if (normalized.includes(word)) {
       totalScore += weight
@@ -163,343 +163,340 @@ const calculateObjectiveRisk = (text) => {
     }
   }
 
-  // 先記錄 pattern 名稱（之後畫面要顯示用）
+  // 2️⃣ 語意模式檢查
   const matchedPatterns = []
 
   // 2️⃣ 30 種語意 pattern
-  const patterns = [
-    // 1. 帳戶凍結 / 停權
-    (t) => {
-      if (t.includes('帳戶') && containsAny(t, ['凍結', '停權', '限制', '管制'])) {
-        matchedPatterns.push('帳戶凍結/停權')
-        return true
-      }
-      return false
-    },
+  //const patterns = [
+    // // 1. 帳戶凍結 / 停權
+    // (t) => {
+    //   if (t.includes('帳戶') && containsAny(t, ['凍結', '停權', '限制', '管制'])) {
+    //     matchedPatterns.push('帳戶凍結/停權')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 2. 訂單異常 + 退款 / 退費
-    (t) => {
-      if (t.includes('訂單') &&
-          containsAny(t, ['異常', '錯誤', '取消']) &&
-          containsAny(t, ['退款', '退費', '返還', '重複扣款'])) {
-        matchedPatterns.push('訂單異常退款')
-        return true
-      }
-      return false
-    },
+    // // 2. 訂單異常 + 退款 / 退費
+    // (t) => {
+    //   if (t.includes('訂單') &&
+    //       containsAny(t, ['異常', '錯誤', '取消']) &&
+    //       containsAny(t, ['退款', '退費', '返還', '重複扣款'])) {
+    //     matchedPatterns.push('訂單異常退款')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 3. 信用卡異常 + 驗證 / 停用
-    (t) => {
-      if (t.includes('信用卡') &&
-          containsAny(t, ['異常', '錯誤']) &&
-          containsAny(t, ['驗證', '停用', '凍結'])) {
-        matchedPatterns.push('信用卡異常驗證')
-        return true
-      }
-      return false
-    },
+    // // 3. 信用卡異常 + 驗證 / 停用
+    // (t) => {
+    //   if (t.includes('信用卡') &&
+    //       containsAny(t, ['異常', '錯誤']) &&
+    //       containsAny(t, ['驗證', '停用', '凍結'])) {
+    //     matchedPatterns.push('信用卡異常驗證')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 4. 分期付款 + 解除設定 / 點數
-    (t) => {
-      if (containsAny(t, ['分期', '分期付款']) &&
-          containsAny(t, ['解除', '取消', '設定']) &&
-          containsAny(t, ['點數', '手續費'])) {
-        matchedPatterns.push('分期付款解除設定')
-        return true
-      }
-      return false
-    },
+    // // 4. 分期付款 + 解除設定 / 點數
+    // (t) => {
+    //   if (containsAny(t, ['分期', '分期付款']) &&
+    //       containsAny(t, ['解除', '取消', '設定']) &&
+    //       containsAny(t, ['點數', '手續費'])) {
+    //     matchedPatterns.push('分期付款解除設定')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 5. 客服通知 + 帳務異常
-    (t) => {
-      if (t.includes('客服') &&
-          containsAny(t, ['帳務', '帳戶']) &&
-          containsAny(t, ['異常', '風險', '錯誤'])) {
-        matchedPatterns.push('客服帳務異常')
-        return true
-      }
-      return false
-    },
+    // // 5. 客服通知 + 帳務異常
+    // (t) => {
+    //   if (t.includes('客服') &&
+    //       containsAny(t, ['帳務', '帳戶']) &&
+    //       containsAny(t, ['異常', '風險', '錯誤'])) {
+    //     matchedPatterns.push('客服帳務異常')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 6. ATM 操作 + 設定 / 啟用
-    (t) => {
-      if (t.includes('ATM') &&
-          containsAny(t, ['操作', '設定', '啟用']) &&
-          containsAny(t, ['帳戶', '分期', '服務'])) {
-        matchedPatterns.push('ATM操作設定')
-        return true
-      }
-      return false
-    },
+    // // 6. ATM 操作 + 設定 / 啟用
+    // (t) => {
+    //   if (t.includes('ATM') &&
+    //       containsAny(t, ['操作', '設定', '啟用']) &&
+    //       containsAny(t, ['帳戶', '分期', '服務'])) {
+    //     matchedPatterns.push('ATM操作設定')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 7. 轉帳錯誤 + 需協助處理
-    (t) => {
-      if (containsAny(t, ['轉帳', '匯款']) &&
-          containsAny(t, ['錯誤', '失敗', '異常']) &&
-          containsAny(t, ['協助', '處理', '更正'])) {
-        matchedPatterns.push('轉帳錯誤需處理')
-        return true
-      }
-      return false
-    },
+    // // 7. 轉帳錯誤 + 需協助處理
+    // (t) => {
+    //   if (containsAny(t, ['轉帳', '匯款']) &&
+    //       containsAny(t, ['錯誤', '失敗', '異常']) &&
+    //       containsAny(t, ['協助', '處理', '更正'])) {
+    //     matchedPatterns.push('轉帳錯誤需處理')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 8. 手機銀行 / 網路銀行 + 綁定 / 登入異常
-    (t) => {
-      if (containsAny(t, ['手機銀行', '網路銀行']) &&
-          containsAny(t, ['綁定', '登入']) &&
-          containsAny(t, ['異常', '風險', '錯誤'])) {
-        matchedPatterns.push('手機銀行綁定異常')
-        return true
-      }
-      return false
-    },
+    // // 8. 手機銀行 / 網路銀行 + 綁定 / 登入異常
+    // (t) => {
+    //   if (containsAny(t, ['手機銀行', '網路銀行']) &&
+    //       containsAny(t, ['綁定', '登入']) &&
+    //       containsAny(t, ['異常', '風險', '錯誤'])) {
+    //     matchedPatterns.push('手機銀行綁定異常')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 9. 欠費 + 停話 / 暫停服務
-    (t) => {
-      if (containsAny(t, ['欠費', '未繳']) &&
-          containsAny(t, ['停話', '暫停', '中止']) &&
-          containsAny(t, ['電信', '門號', '電話'])) {
-        matchedPatterns.push('電信欠費停話')
-        return true
-      }
-      return false
-    },
+    // // 9. 欠費 + 停話 / 暫停服務
+    // (t) => {
+    //   if (containsAny(t, ['欠費', '未繳']) &&
+    //       containsAny(t, ['停話', '暫停', '中止']) &&
+    //       containsAny(t, ['電信', '門號', '電話'])) {
+    //     matchedPatterns.push('電信欠費停話')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 10. 國稅 / 繳稅 + 資料錯誤
-    (t) => {
-      if (containsAny(t, ['國稅局', '稅務', '繳稅']) &&
-          containsAny(t, ['資料', '資訊']) &&
-          containsAny(t, ['錯誤', '異常', '更正'])) {
-        matchedPatterns.push('繳稅資料錯誤')
-        return true
-      }
-      return false
-    },
+    // // 10. 國稅 / 繳稅 + 資料錯誤
+    // (t) => {
+    //   if (containsAny(t, ['國稅局', '稅務', '繳稅']) &&
+    //       containsAny(t, ['資料', '資訊']) &&
+    //       containsAny(t, ['錯誤', '異常', '更正'])) {
+    //     matchedPatterns.push('繳稅資料錯誤')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 11. 投資 + 保證獲利
-    (t) => {
-      if (t.includes('投資') &&
-          containsAny(t, ['保證', '穩賺', '穩定']) &&
-          containsAny(t, ['獲利', '收益', '回報'])) {
-        matchedPatterns.push('投資保證獲利')
-        return true
-      }
-      return false
-    },
+    // // 11. 投資 + 保證獲利
+    // (t) => {
+    //   if (t.includes('投資') &&
+    //       containsAny(t, ['保證', '穩賺', '穩定']) &&
+    //       containsAny(t, ['獲利', '收益', '回報'])) {
+    //     matchedPatterns.push('投資保證獲利')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 12. 虛擬貨幣 + 群組 / 指導
-    (t) => {
-      if (containsAny(t, ['虛擬貨幣', '虛擬幣', '加密貨幣', '比特幣']) &&
-          containsAny(t, ['群組', '社群']) &&
-          containsAny(t, ['老師', '導師', '指導'])) {
-        matchedPatterns.push('虛擬貨幣導師群組')
-        return true
-      }
-      return false
-    },
+    // // 12. 虛擬貨幣 + 群組 / 指導
+    // (t) => {
+    //   if (containsAny(t, ['虛擬貨幣', '虛擬幣', '加密貨幣', '比特幣']) &&
+    //       containsAny(t, ['群組', '社群']) &&
+    //       containsAny(t, ['老師', '導師', '指導'])) {
+    //     matchedPatterns.push('虛擬貨幣導師群組')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 13. 股票 + 內線消息 / 把握機會
-    (t) => {
-      if (t.includes('股票') &&
-          containsAny(t, ['內線', '消息']) &&
-          containsAny(t, ['把握', '機會', '穩賺'])) {
-        matchedPatterns.push('股票內線機會')
-        return true
-      }
-      return false
-    },
+    // // 13. 股票 + 內線消息 / 把握機會
+    // (t) => {
+    //   if (t.includes('股票') &&
+    //       containsAny(t, ['內線', '消息']) &&
+    //       containsAny(t, ['把握', '機會', '穩賺'])) {
+    //     matchedPatterns.push('股票內線機會')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 14. LINE 群組 + 分析師 / 報牌
-    (t) => {
-      if (containsAny(t, ['LINE群組', '群組']) &&
-          containsAny(t, ['分析師', '老師']) &&
-          containsAny(t, ['報牌', '報明牌', '帶單'])) {
-        matchedPatterns.push('投資群組報牌')
-        return true
-      }
-      return false
-    },
+    // // 14. LINE 群組 + 分析師 / 報牌
+    // (t) => {
+    //   if (containsAny(t, ['LINE群組', '群組']) &&
+    //       containsAny(t, ['分析師', '老師']) &&
+    //       containsAny(t, ['報牌', '報明牌', '帶單'])) {
+    //     matchedPatterns.push('投資群組報牌')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 15. 期貨 / 外匯 + 穩定收益
-    (t) => {
-      if (containsAny(t, ['期貨', '外匯']) &&
-          containsAny(t, ['穩定', '穩健']) &&
-          containsAny(t, ['收益', '獲利', '回報'])) {
-        matchedPatterns.push('期貨外匯穩定收益')
-        return true
-      }
-      return false
-    },
+    // // 15. 期貨 / 外匯 + 穩定收益
+    // (t) => {
+    //   if (containsAny(t, ['期貨', '外匯']) &&
+    //       containsAny(t, ['穩定', '穩健']) &&
+    //       containsAny(t, ['收益', '獲利', '回報'])) {
+    //     matchedPatterns.push('期貨外匯穩定收益')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 16. 儲值 + 回饋 / 點數
-    (t) => {
-      if (containsAny(t, ['儲值', '充值']) &&
-          containsAny(t, ['回饋', '贈送']) &&
-          t.includes('點數')) {
-        matchedPatterns.push('儲值點數回饋')
-        return true
-      }
-      return false
-    },
+    // // 16. 儲值 + 回饋 / 點數
+    // (t) => {
+    //   if (containsAny(t, ['儲值', '充值']) &&
+    //       containsAny(t, ['回饋', '贈送']) &&
+    //       t.includes('點數')) {
+    //     matchedPatterns.push('儲值點數回饋')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 17. 低成本 + 高報酬
-    (t) => {
-      if (containsAny(t, ['低成本', '小資', '少量', '小額']) &&
-          containsAny(t, ['高報酬', '高獲利', '高收益'])) {
-        matchedPatterns.push('低成本高報酬投資')
-        return true
-      }
-      return false
-    },
+    // // 17. 低成本 + 高報酬
+    // (t) => {
+    //   if (containsAny(t, ['低成本', '小資', '少量', '小額']) &&
+    //       containsAny(t, ['高報酬', '高獲利', '高收益'])) {
+    //     matchedPatterns.push('低成本高報酬投資')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 18. 會員分紅 + 手續費
-    (t) => {
-      if (containsAny(t, ['會員', 'VIP']) &&
-          t.includes('分紅') &&
-          containsAny(t, ['手續費', '代繳'])) {
-        matchedPatterns.push('會員分紅手續費')
-        return true
-      }
-      return false
-    },
+    // // 18. 會員分紅 + 手續費
+    // (t) => {
+    //   if (containsAny(t, ['會員', 'VIP']) &&
+    //       t.includes('分紅') &&
+    //       containsAny(t, ['手續費', '代繳'])) {
+    //     matchedPatterns.push('會員分紅手續費')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 19. 涉嫌洗錢 + 配合調查
-    (t) => {
-      if (t.includes('洗錢') &&
-          containsAny(t, ['涉嫌', '涉及']) &&
-          containsAny(t, ['配合', '調查'])) {
-        matchedPatterns.push('涉嫌洗錢配合調查')
-        return true
-      }
-      return false
-    },
+    // // 19. 涉嫌洗錢 + 配合調查
+    // (t) => {
+    //   if (t.includes('洗錢') &&
+    //       containsAny(t, ['涉嫌', '涉及']) &&
+    //       containsAny(t, ['配合', '調查'])) {
+    //     matchedPatterns.push('涉嫌洗錢配合調查')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 20. 法院傳票 + 出庭 / 移送
-    (t) => {
-      if (t.includes('法院') &&
-          containsAny(t, ['傳票', '出庭', '移送'])) {
-        matchedPatterns.push('法院傳票出庭')
-        return true
-      }
-      return false
-    },
+    // // 20. 法院傳票 + 出庭 / 移送
+    // (t) => {
+    //   if (t.includes('法院') &&
+    //       containsAny(t, ['傳票', '出庭', '移送'])) {
+    //     matchedPatterns.push('法院傳票出庭')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 21. 政府 / 戶政 / 勞保 / 健保 + 更新資料
-    (t) => {
-      if (containsAny(t, ['戶政', '勞保', '健保', '政府機關']) &&
-          containsAny(t, ['更新', '更正', '補件']) &&
-          t.includes('資料')) {
-        matchedPatterns.push('公家機關資料更新')
-        return true
-      }
-      return false
-    },
+    // // 21. 政府 / 戶政 / 勞保 / 健保 + 更新資料
+    // (t) => {
+    //   if (containsAny(t, ['戶政', '勞保', '健保', '政府機關']) &&
+    //       containsAny(t, ['更新', '更正', '補件']) &&
+    //       t.includes('資料')) {
+    //     matchedPatterns.push('公家機關資料更新')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 22. 健保 / 補助 + 異常 / 停發
-    (t) => {
-      if (containsAny(t, ['健保', '補助', '津貼']) &&
-          containsAny(t, ['異常', '停發', '中止', '錯誤'])) {
-        matchedPatterns.push('補助/健保異常')
-        return true
-      }
-      return false
-    },
+    // // 22. 健保 / 補助 + 異常 / 停發
+    // (t) => {
+    //   if (containsAny(t, ['健保', '補助', '津貼']) &&
+    //       containsAny(t, ['異常', '停發', '中止', '錯誤'])) {
+    //     matchedPatterns.push('補助/健保異常')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 23. 罰單未繳 + 系統 / 帳務問題
-    (t) => {
-      if (containsAny(t, ['罰單', '違規']) &&
-          containsAny(t, ['未繳', '逾期']) &&
-          containsAny(t, ['系統', '帳務'])) {
-        matchedPatterns.push('罰單未繳疑慮')
-        return true
-      }
-      return false
-    },
+    // // 23. 罰單未繳 + 系統 / 帳務問題
+    // (t) => {
+    //   if (containsAny(t, ['罰單', '違規']) &&
+    //       containsAny(t, ['未繳', '逾期']) &&
+    //       containsAny(t, ['系統', '帳務'])) {
+    //     matchedPatterns.push('罰單未繳疑慮')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 24. 海關包裹滯留 + 清關費
-    (t) => {
-      if (containsAny(t, ['海關', '關務']) &&
-          containsAny(t, ['包裹', '貨物']) &&
-          containsAny(t, ['滯留', '扣留']) &&
-          containsAny(t, ['清關費', '關稅', '手續費'])) {
-        matchedPatterns.push('海關包裹滯留清關費')
-        return true
-      }
-      return false
-    },
+    // // 24. 海關包裹滯留 + 清關費
+    // (t) => {
+    //   if (containsAny(t, ['海關', '關務']) &&
+    //       containsAny(t, ['包裹', '貨物']) &&
+    //       containsAny(t, ['滯留', '扣留']) &&
+    //       containsAny(t, ['清關費', '關稅', '手續費'])) {
+    //     matchedPatterns.push('海關包裹滯留清關費')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 25. 包裹地址錯誤 + 點擊連結
-    (t) => {
-      if (containsAny(t, ['包裹', '宅配', '物流']) &&
-          containsAny(t, ['地址', '收件人']) &&
-          containsAny(t, ['錯誤', '不完整']) &&
-          containsAny(t, ['點擊', '連結', '網址'])) {
-        matchedPatterns.push('宅配地址錯誤連結')
-        return true
-      }
-      return false
-    },
+    // // 25. 包裹地址錯誤 + 點擊連結
+    // (t) => {
+    //   if (containsAny(t, ['包裹', '宅配', '物流']) &&
+    //       containsAny(t, ['地址', '收件人']) &&
+    //       containsAny(t, ['錯誤', '不完整']) &&
+    //       containsAny(t, ['點擊', '連結', '網址'])) {
+    //     matchedPatterns.push('宅配地址錯誤連結')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 26. 交友 / 認識 + 匯款 / 幫忙
-    (t) => {
-      if (containsAny(t, ['交友', '認識', '朋友', '網友']) &&
-          containsAny(t, ['匯款', '借錢', '幫忙轉帳'])) {
-        matchedPatterns.push('交友匯款請求')
-        return true
-      }
-      return false
-    },
+    // // 26. 交友 / 認識 + 匯款 / 幫忙
+    // (t) => {
+    //   if (containsAny(t, ['交友', '認識', '朋友', '網友']) &&
+    //       containsAny(t, ['匯款', '借錢', '幫忙轉帳'])) {
+    //     matchedPatterns.push('交友匯款請求')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 27. 貨到付款 + 退款流程 / 手續費
-    (t) => {
-      if (t.includes('貨到付款') &&
-          containsAny(t, ['退款', '退費']) &&
-          containsAny(t, ['手續費', '流程'])) {
-        matchedPatterns.push('貨到付款退款詐騙')
-        return true
-      }
-      return false
-    },
+    // // 27. 貨到付款 + 退款流程 / 手續費
+    // (t) => {
+    //   if (t.includes('貨到付款') &&
+    //       containsAny(t, ['退款', '退費']) &&
+    //       containsAny(t, ['手續費', '流程'])) {
+    //     matchedPatterns.push('貨到付款退款詐騙')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 28. 門號 / 手機 + 異地登入 / 暫停
-    (t) => {
-      if (containsAny(t, ['門號', '手機']) &&
-          containsAny(t, ['異地登入', '異常登入', '風險登入']) &&
-          containsAny(t, ['暫停', '停用', '保護'])) {
-        matchedPatterns.push('門號異地登入暫停')
-        return true
-      }
-      return false
-    },
+    // // 28. 門號 / 手機 + 異地登入 / 暫停
+    // (t) => {
+    //   if (containsAny(t, ['門號', '手機']) &&
+    //       containsAny(t, ['異地登入', '異常登入', '風險登入']) &&
+    //       containsAny(t, ['暫停', '停用', '保護'])) {
+    //     matchedPatterns.push('門號異地登入暫停')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 29. 驗證碼 + 要你提供
-    (t) => {
-      if (t.includes('驗證碼') &&
-          containsAny(t, ['提供', '傳給', '回覆', '告知'])) {
-        matchedPatterns.push('要求提供驗證碼')
-        return true
-      }
-      return false
-    },
+    // // 29. 驗證碼 + 要你提供
+    // (t) => {
+    //   if (t.includes('驗證碼') &&
+    //       containsAny(t, ['提供', '傳給', '回覆', '告知'])) {
+    //     matchedPatterns.push('要求提供驗證碼')
+    //     return true
+    //   }
+    //   return false
+    // },
 
-    // 30. 中獎 / 抽獎 + 手續費 / 代繳
-    (t) => {
-      if (containsAny(t, ['中獎', '抽獎', '得獎']) &&
-          containsAny(t, ['手續費', '代繳', '保證金'])) {
-        matchedPatterns.push('中獎手續費詐騙')
-        return true
-      }
-      return false
-    }
-  ]
-
-  // 3️⃣ 依序跑所有 pattern，只要有一個中就算「有疑慮」
-  const hitPattern = patterns.some(fn => fn(normalized))
+    // // 30. 中獎 / 抽獎 + 手續費 / 代繳
+    // (t) => {
+    //   if (containsAny(t, ['中獎', '抽獎', '得獎']) &&
+    //       containsAny(t, ['手續費', '代繳', '保證金'])) {
+    //     matchedPatterns.push('中獎手續費詐騙')
+    //     return true
+    //   }
+    //   return false
+    // }
+  //]
 
   // 舊的
   // const ruleSuspicious = matchedTopKeywords.length >= 2 || hitPattern
 
- patterns.forEach(fn => fn(normalized))
+//  patterns.forEach(fn => fn(normalized))
 
   // 3️⃣ 根據統計門檻判定等級
   // 紅燈門檻 (Mean + 2σ) = 850
@@ -517,7 +514,7 @@ const calculateObjectiveRisk = (text) => {
 
   // ✅ 回傳正確的新結構
   return {
-    score: totalScore,       // 解決 'totalScore' unused 錯誤
+    score: totalScore,
     riskLevel,
     matchedDetails,
     matchedPatterns
@@ -563,7 +560,9 @@ const analyzeMessages = async (smsArray) => {
       console.warn('❌ CheckRisk API 錯誤：', e)
     }
 
-// ✅ 改成新的：
+// ... 在 analyzeMessages 函式內 ...
+
+    // ✅ 改成新的呼叫方式
     const aiAnalysis = calculateObjectiveRisk(sms.body)
 
     const isSelf = sms.type === 2 || sms.fromMe
@@ -581,19 +580,18 @@ const analyzeMessages = async (smsArray) => {
       
       riskText: riskText,
       
-      // 🔥 補上這些新欄位，畫面才抓得到資料！
+      // 🔥 這裡要對應新的回傳結構
       riskScore: aiAnalysis.score,
       keywordRiskLevel: aiAnalysis.riskLevel,
       matchedDetails: aiAnalysis.matchedDetails,
       matchedPatterns: aiAnalysis.matchedPatterns,
 
-      // 為了相容舊邏輯，補上這些
-      matchedKeywords: matchedKeywords,
+      // ⚠️ 關鍵修正：為了避免 ESLint 報錯或畫面壞掉，手動補上舊欄位的空值
+      matchedTopKeywords: [], // 給它一個空陣列，這樣就不會報錯了
+      matchedKeywords: matchedKeywords, // 來自 API 的
       matchedScamUrls: matchedScamUrls,
-      ruleSuspicious: aiAnalysis.riskLevel !== 'low',
-      matchedTopKeywords: [] // 舊欄位給空陣列即可
+      ruleSuspicious: aiAnalysis.riskLevel !== 'low' // 用新邏輯推導舊欄位
     }
-
     // return {舊的
     //   position: isSelf ? 'right' : 'left',
     //   text: sms.body,

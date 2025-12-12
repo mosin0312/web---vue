@@ -32,27 +32,33 @@
 
        <div class="match-info">
 
-  <span v-if="msg.matchedKeywords && msg.matchedKeywords.length">
-    關鍵字：{{ msg.matchedKeywords.join(', ') }}
-  </span><br v-if="msg.matchedKeywords && msg.matchedKeywords.length" />
+  <div class="score-container" :class="msg.keywordRiskLevel">
+    <div class="score-header">
+      <span>風險評分：<strong>{{ msg.riskScore }}</strong> 分</span>
+      <span class="risk-badge">
+        {{ msg.keywordRiskLevel === 'high' ? '🔴 高度風險' : (msg.keywordRiskLevel === 'medium' ? '🟡 特徵警戒' : '🟢 低風險') }}
+      </span>
+    </div>
+    
+    <div v-if="msg.matchedDetails && msg.matchedDetails.length" class="score-details">
+      <span class="detail-label">命中特徵：</span>
+      <span v-for="(item, idx) in msg.matchedDetails" :key="idx" class="keyword-tag">
+        {{ item.word }} <small>({{ item.weight }})</small>
+        {{ idx < msg.matchedDetails.length - 1 ? '、' : '' }}
+      </span>
+    </div>
+  </div>
 
-  <span v-if="msg.matchedScamUrls && msg.matchedScamUrls.length">
-    詐騙網址：{{ msg.matchedScamUrls.join(', ') }}
-  </span><br v-if="msg.matchedScamUrls && msg.matchedScamUrls.length" />
+  <div v-if="msg.matchedPatterns && msg.matchedPatterns.length" class="pattern-row">
+    <span class="detail-label">語意分析：</span>
+    <span>{{ msg.matchedPatterns.join('、') }}</span>
+  </div>
 
-  <span>
-    AI 關鍵字評估：
-    <strong v-if="msg.ruleSuspicious">有疑慮</strong>
-    <span v-else>無疑慮</span>
-  </span><br />
+  <div v-if="msg.matchedScamUrls && msg.matchedScamUrls.length" class="url-row">
+    <span class="danger-label">⚠️ 詐騙網址：</span>
+    <span>{{ msg.matchedScamUrls.join(', ') }}</span>
+  </div>
 
-  <span v-if="msg.matchedTopKeywords && msg.matchedTopKeywords.length">
-    熱門詐騙關鍵字：{{ msg.matchedTopKeywords.join(', ') }}
-  </span>
-
-  <span v-if="msg.matchedPatterns && msg.matchedPatterns.length">
-    語意模式命中：{{ msg.matchedPatterns.join('、') }}
-  </span>
 </div>
 
 
@@ -78,7 +84,7 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
-import { topKeywords } from '@/router/topKeywords'
+import { scamKeywords } from '@/router/topKeywords'
 
 
 const route = useRoute()
@@ -133,32 +139,29 @@ const normalizePhone = (phone) =>
   phone?.replace(/\D/g, '').replace(/^886/, '0')
 
 
-// ---------- 🔍 AI 關鍵字＋語意規則（純前端）區塊 ----------
+// ---------- 🔍 統計客觀評分＋語意規則 ----------
 
-// 文字轉成比較乾淨的版本
-const normalizeText = (text) =>
-  (text || '').replace(/\s+/g, ' ').trim()
+const normalizeText = (text) => (text || '').replace(/\s+/g, ' ').trim()
+const containsAny = (text, words) => words.some(w => text.includes(w))
 
-
-// 簡單工具：確認文字中是否包含一組詞的任一個
-const containsAny = (text, words) =>
-  words.some(w => text.includes(w))
-
-const checkRuleSuspicious = (text) => {
+// 🏆 核心演算法
+const calculateObjectiveRisk = (text) => {
   if (!text) {
-    return {
-      ruleSuspicious: false,
-      matchedTopKeywords: [],
-      matchedPatterns: []
-    }
+    return { score: 0, riskLevel: 'low', matchedDetails: [], matchedPatterns: [] }
   }
 
   const normalized = normalizeText(text)
+  let totalScore = 0
+  let matchedDetails = [] 
 
-  // 1️⃣ 先做 Top100 關鍵字命中
-  const matchedTopKeywords = topKeywords.filter(k =>
-    normalized.includes(k)
-  )
+  // 1️⃣ 關鍵字權重計分
+  // ✅ 這裡會自動使用上方 import 進來的 scamKeywords
+  for (const [word, weight] of Object.entries(scamKeywords)) {
+    if (normalized.includes(word)) {
+      totalScore += weight
+      matchedDetails.push({ word, weight })
+    }
+  }
 
   // 先記錄 pattern 名稱（之後畫面要顯示用）
   const matchedPatterns = []
@@ -544,12 +547,8 @@ const analyzeMessages = async (smsArray) => {
       console.warn('❌ CheckRisk API 錯誤：', e)
     }
 
-    // 🔐 前 100 關鍵字＋語意規則（純前端）
-    const {
-      ruleSuspicious,
-      matchedTopKeywords,
-      matchedPatterns
-    } = checkRuleSuspicious(sms.body)
+// ✅ 改成新的：
+    const aiAnalysis = calculateObjectiveRisk(sms.body)
 
     const isSelf = sms.type === 2 || sms.fromMe
 
@@ -559,14 +558,40 @@ const analyzeMessages = async (smsArray) => {
       link: extractLink(sms.body),
       image: sms.image || '',
       time: new Date(Number(sms.date)).toISOString(),
-      risk,
-      riskText,
-      matchedKeywords,
-      matchedScamUrls,
-      ruleSuspicious,
-      matchedTopKeywords,
-      matchedPatterns
+      
+      // 整合風險等級
+      risk: (aiAnalysis.riskLevel === 'high' || risk === 'high') ? 'high' 
+            : (aiAnalysis.riskLevel === 'medium' ? 'medium' : 'low'),
+      
+      riskText: riskText,
+      
+      // 🔥 補上這些新欄位，畫面才抓得到資料！
+      riskScore: aiAnalysis.score,
+      keywordRiskLevel: aiAnalysis.riskLevel,
+      matchedDetails: aiAnalysis.matchedDetails,
+      matchedPatterns: aiAnalysis.matchedPatterns,
+
+      // 為了相容舊邏輯，補上這些
+      matchedKeywords: matchedKeywords,
+      matchedScamUrls: matchedScamUrls,
+      ruleSuspicious: aiAnalysis.riskLevel !== 'low',
+      matchedTopKeywords: [] // 舊欄位給空陣列即可
     }
+
+    // return {舊的
+    //   position: isSelf ? 'right' : 'left',
+    //   text: sms.body,
+    //   link: extractLink(sms.body),
+    //   image: sms.image || '',
+    //   time: new Date(Number(sms.date)).toISOString(),
+    //   risk,
+    //   riskText,
+    //   matchedKeywords,
+    //   matchedScamUrls,
+    //   ruleSuspicious,
+    //   matchedTopKeywords,
+    //   matchedPatterns
+    // }
   }))
 
 
@@ -761,6 +786,54 @@ onMounted(() => {
   max-height: 90%;
   border-radius: 12px;
   background: white;
+}
+
+.score-container {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid #ddd;
+}
+
+.score-container.high { background: #ffebee; border-color: #ffcdd2; }
+.score-container.medium { background: #fff8e1; border-color: #ffecb3; }
+.score-container.low { background: #e8f5e9; border-color: #c8e6c9; }
+
+.score-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.risk-badge {
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.6);
+}
+
+.score-details, .pattern-row, .url-row {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #555;
+}
+
+.pattern-row {
+  margin-left: 4px; /* 對齊微調 */
+  color: #666;
+}
+
+.danger-label {
+  color: #d32f2f;
+  font-weight: bold;
+}
+
+.keyword-tag small {
+  color: #888; /* 讓權重分數顏色淡一點，不要喧賓奪主 */
 }
 </style>
 

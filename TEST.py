@@ -19,7 +19,7 @@ words = jieba.lcut(text)
 
 # 3️⃣ 停用詞（可自行擴充）
 stopwords = {
-    "的", "了", "與", "在", "也", "有", "是", "請", "如果",
+    "的", "了", "與", "在", "也", "有", "是", "請", "如果","詐騙",
     "我", "他", "她", "你", "我們", "對方", "自己", "並", "就",
     "要", "會", "被", "說", "這個", "那個", "以及", "但是","一個",
     "發現","看到","當時","認識","真的","他們","驚覺","開始","希望",
@@ -51,11 +51,11 @@ filtered = [w for w in words if len(w) > 1 and w not in stopwords]
 
 # 5️⃣ 統計詞頻
 counter = Counter(filtered)
-most_common = counter.most_common(150)
+most_common = counter.most_common(100)
 
-print("常出現的詞統計結果（前 150 名）")
-print("-" * 150)
-for w, c in counter.most_common(150):
+print("常出現的詞統計結果（前 100 名）")
+print("-" * 100)
+for w, c in counter.most_common(100):
     print(f"{w}: {c}")
 
 # ========= 6. 輸出成新的 Excel & CSV =========
@@ -63,11 +63,11 @@ for w, c in counter.most_common(150):
 freq_df = pd.DataFrame(most_common, columns=["word", "count"])
 
 # 輸出 CSV（utf-8-sig 比較不會有亂碼問題）
-freq_df.to_csv("150_keywords_freq.csv", index=False, encoding="utf-8-sig")
+freq_df.to_csv("100_keywords_freq.csv", index=False, encoding="utf-8-sig")
 
 # 輸出 Excel
-freq_df.to_excel("150_keywords_freq.xlsx", index=False)
+freq_df.to_excel("100_keywords_freq.xlsx", index=False)
 
 print("\n✅ 已輸出：")
-print("  - 150_keywords_freq.csv")
-print("  - 150_keywords_freq.xlsx")
+print("  - 100_keywords_freq.csv")
+print("  - 100_keywords_freq.xlsx")

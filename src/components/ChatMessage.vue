@@ -36,7 +36,7 @@
     <div class="score-header">
       <span>風險評分：<strong>{{ msg.riskScore }}</strong> 分</span>
       <span class="risk-badge">
-        {{ msg.keywordRiskLevel === 'high' ? '🔴 高度風險' : (msg.keywordRiskLevel === 'medium' ? '🟡 特徵警戒' : '🟢 低風險') }}
+        {{ msg.keywordRiskLevel === 'high' ? '🔴 高度風險' : (msg.keywordRiskLevel === 'medium' ? '🟡 中風險' : '🟢 低風險') }}
       </span>
     </div>
     
@@ -65,8 +65,8 @@
         <div class="info-row">
           <span class="message-time">{{ msg.time }}</span>
           <div class="message-meta">
-            <img :src="getRiskIcon(msg.risk)" class="risk-icon" :alt="msg.riskText" />
-            <span class="risk-reason">{{ msg.riskText }}</span>
+            <!-- <img :src="getRiskIcon(msg.risk)" class="risk-icon" :alt="msg.riskText" />
+            <span class="risk-reason">{{ msg.riskText }}</span> -->
           </div>
         </div>
       </div>
@@ -104,15 +104,15 @@ const openImage = (src) => {
 }
 const closeModal = () => showModal.value = false
 
-const getRiskIcon = (risk) => {
-  switch (risk) {
-    case 'low': return new URL('@/assets/icons/risk-low.svg', import.meta.url).href
-    case 'medium': return new URL('@/assets/icons/risk-medium.svg', import.meta.url).href
-    case 'high': return new URL('@/assets/icons/risk-high.svg', import.meta.url).href
-    case 'no': return new URL('@/assets/icons/risk-no.svg', import.meta.url).href
-    default: return new URL('@/assets/icons/risk-unknown.svg', import.meta.url).href
-  }
-}
+// const getRiskIcon = (risk) => {
+//   switch (risk) {
+//     case 'low': return new URL('@/assets/icons/risk-low.svg', import.meta.url).href
+//     case 'medium': return new URL('@/assets/icons/risk-medium.svg', import.meta.url).href
+//     case 'high': return new URL('@/assets/icons/risk-high.svg', import.meta.url).href
+//     case 'no': return new URL('@/assets/icons/risk-no.svg', import.meta.url).href
+//     default: return new URL('@/assets/icons/risk-unknown.svg', import.meta.url).href
+//   }
+// }
 
 const copyText = (text) => {
   navigator.clipboard.writeText(text)

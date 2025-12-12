@@ -496,14 +496,30 @@ const calculateObjectiveRisk = (text) => {
   // 3️⃣ 依序跑所有 pattern，只要有一個中就算「有疑慮」
   const hitPattern = patterns.some(fn => fn(normalized))
 
-  // 4️⃣ 最終判斷：
-  //    - Top100 命中 >= 2 → 有疑慮
-  //    - 或命中任一語意 pattern → 有疑慮
-  const ruleSuspicious = matchedTopKeywords.length >= 2 || hitPattern
+  // 舊的
+  // const ruleSuspicious = matchedTopKeywords.length >= 2 || hitPattern
 
+ patterns.forEach(fn => fn(normalized))
+
+  // 3️⃣ 根據統計門檻判定等級
+  // 紅燈門檻 (Mean + 2σ) = 850
+  // 黃燈門檻 (Q1) = 168
+  let riskLevel = 'low'
+
+  if (totalScore >= 850) {
+    riskLevel = 'high'
+  } else if (totalScore >= 168) {
+    riskLevel = 'medium'
+  }
+
+  // 將命中詳情依權重排序
+  matchedDetails.sort((a, b) => b.weight - a.weight)
+
+  // ✅ 回傳正確的新結構
   return {
-    ruleSuspicious,
-    matchedTopKeywords,
+    score: totalScore,       // 解決 'totalScore' unused 錯誤
+    riskLevel,
+    matchedDetails,
     matchedPatterns
   }
 }

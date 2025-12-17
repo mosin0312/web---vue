@@ -49,6 +49,15 @@
     </div>
   </div>
 
+  <div v-if="msg.aiAnalysisResult && msg.aiAnalysisResult !== '無法取得 AI 分析結果'" class="ai-box">
+    <div class="ai-header">
+      <span class="ai-icon">🤖</span> AI 語意分析
+    </div>
+    <div class="ai-content">
+      {{ msg.aiAnalysisResult }}
+    </div>
+  </div>
+
   <!-- <div v-if="msg.matchedPatterns && msg.matchedPatterns.length" class="pattern-row">
     <span class="detail-label">語意分析：</span>
     <span>{{ msg.matchedPatterns.join('、') }}</span>
@@ -537,7 +546,21 @@ const analyzeMessages = async (smsArray) => {
     let riskText = '未知'
     let matchedKeywords = []
     let matchedScamUrls = []
+    let aiAnalysisResult = '' // 🔥 新增：用來存 AI 回傳的文字
 
+
+    // 2. 呼叫後端 API (包含舊的 CheckRisk 和新的 AI 分析)
+    try {
+      const aiResponse = await api.post(
+        '/api/test/analyze-sms', 
+        { SmsText: sms.body }, 
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      
+      const aiData = aiResponse.data
+      aiAnalysisResult = (typeof aiData === 'string') ? aiData : (aiData.analysis || aiData.result || JSON.stringify(aiData))
+
+      // (B) 保留原本的 CheckRisk API
     try {
       const response = await api.post(
         '/api/Test',
@@ -558,6 +581,11 @@ const analyzeMessages = async (smsArray) => {
       matchedScamUrls = data.matchedScamUrls || []
     } catch (e) {
       console.warn('❌ CheckRisk API 錯誤：', e)
+    }
+
+    } catch (e) {
+      console.warn('❌ API 錯誤：', e)
+      aiAnalysisResult = '無法取得 AI 分析結果'
     }
 
 // ... 在 analyzeMessages 函式內 ...
@@ -585,6 +613,9 @@ const analyzeMessages = async (smsArray) => {
       keywordRiskLevel: aiAnalysis.riskLevel,
       matchedDetails: aiAnalysis.matchedDetails,
       matchedPatterns: aiAnalysis.matchedPatterns,
+
+      // 🔥 新增：AI 語意分析結果
+      aiAnalysisResult: aiAnalysisResult,
 
       // ⚠️ 關鍵修正：為了避免 ESLint 報錯或畫面壞掉，手動補上舊欄位的空值
       matchedTopKeywords: [], // 給它一個空陣列，這樣就不會報錯了
@@ -848,6 +879,36 @@ onMounted(() => {
 
 .keyword-tag small {
   color: #888; /* 讓權重分數顏色淡一點，不要喧賓奪主 */
+}
+
+/* AI 分析區塊 */
+.ai-box {
+  margin-top: 8px;
+  background: #f0f7ff; /* 淡淡的藍色背景 */
+  border: 1px solid #cce5ff;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.ai-header {
+  font-size: 12px;
+  font-weight: bold;
+  color: #0056b3;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-icon {
+  font-size: 14px;
+}
+
+.ai-content {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+  white-space: pre-wrap; /* 讓 AI 回傳的換行能正常顯示 */
 }
 </style>
 

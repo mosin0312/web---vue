@@ -49,14 +49,14 @@
     </div>
   </div>
 
-  <div v-if="msg.aiAnalysisResult && msg.aiAnalysisResult !== '無法取得 AI 分析結果'" class="ai-box">
-    <div class="ai-header">
-      <span class="ai-icon">🤖</span> AI 語意分析
-    </div>
-    <div class="ai-content">
-      {{ msg.aiAnalysisResult }}
-    </div>
+  <div v-if="msg.aiAnalysisResult" class="ai-box">
+  <div class="ai-header">
+    <span class="ai-icon">🤖</span> AI 語意分析
   </div>
+  <div class="ai-content" :style="msg.aiAnalysisResult.includes('無法') ? 'color: red;' : ''">
+    {{ msg.aiAnalysisResult }}
+  </div>
+</div>
 
   <!-- <div v-if="msg.matchedPatterns && msg.matchedPatterns.length" class="pattern-row">
     <span class="detail-label">語意分析：</span>
@@ -551,14 +551,25 @@ const analyzeMessages = async (smsArray) => {
 
     // 2. 呼叫後端 API (包含舊的 CheckRisk 和新的 AI 分析)
     try {
+      // (A) 呼叫新的 AI 分析 API
       const aiResponse = await api.post(
-        '/api/test/analyze-sms', 
-        { SmsText: sms.body }, 
+        '/api/Test/analyze-sms', // 👈 確保路徑大小寫跟後端一致 (Test vs test)
+        { SmsText: sms.body },   // 這是傳給後端的 (Input)
         { headers: { Authorization: `Bearer ${token}` } }
       )
       
       const aiData = aiResponse.data
-      aiAnalysisResult = (typeof aiData === 'string') ? aiData : (aiData.analysis || aiData.result || JSON.stringify(aiData))
+      console.log('🤖 AI API 回傳完整資料：', aiData) // 建議加這行方便除錯
+
+      // 🔥 修改這裡：依照你說的回傳格式 { "smsText": "..." } 來取值
+      // 如果 aiData 本身就是字串(防呆)，就直接用；否則取 .smsText 屬性
+      if (typeof aiData === 'string') {
+        aiAnalysisResult = aiData
+      } else if (aiData && aiData.smsText) {
+        aiAnalysisResult = aiData.smsText // ✅ 這裡接到 AI 的分析文字
+      } else {
+        aiAnalysisResult = '無法解析 AI 回傳內容'
+      }
 
       // (B) 保留原本的 CheckRisk API
     try {
@@ -584,7 +595,7 @@ const analyzeMessages = async (smsArray) => {
     }
 
     } catch (e) {
-      console.warn('❌ API 錯誤：', e)
+      console.warn('❌ AI API 錯誤：', e)
       aiAnalysisResult = '無法取得 AI 分析結果'
     }
 

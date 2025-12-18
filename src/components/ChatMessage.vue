@@ -550,28 +550,43 @@ const analyzeMessages = async (smsArray) => {
 
 
     // 2. 呼叫後端 API (包含舊的 CheckRisk 和新的 AI 分析)
-    try {
       // (A) 呼叫新的 AI 分析 API
-      const aiResponse = await api.post(
-        '/api/Test/analyze-sms', // 👈 確保路徑大小寫跟後端一致 (Test vs test)
-        { SmsText: sms.body },   // 這是傳給後端的 (Input)
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      
-      const aiData = aiResponse.data
-      console.log('🤖 AI API 回傳完整資料：', aiData) // 建議加這行方便除錯
+      try {
+  const token = localStorage.getItem('userToken')
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
-      // 🔥 修改這裡：依照你說的回傳格式 { "smsText": "..." } 來取值
-      // 如果 aiData 本身就是字串(防呆)，就直接用；否則取 .smsText 屬性
-      if (typeof aiData === 'string') {
-        aiAnalysisResult = aiData
-      } else if (aiData && aiData.smsText) {
-        aiAnalysisResult = aiData.smsText // ✅ 這裡接到 AI 的分析文字
-      } else {
-        aiAnalysisResult = '無法解析 AI 回傳內容'
-      }
+  console.log('🔗 AI request url:', api.defaults.baseURL, '/api/Test/analyze-sms')
+  console.log('🔑 token length:', token?.length)
 
-      // (B) 保留原本的 CheckRisk API
+  const aiResponse = await api.post(
+    '/api/Test/analyze-sms',
+    { SmsText: sms.body },
+    { headers }
+  )
+
+  const aiData = aiResponse.data
+  console.log('🤖 AI response:', aiData)
+
+  // 統一轉字串顯示
+  aiAnalysisResult =
+    typeof aiData === 'string'
+      ? aiData
+      : (aiData?.result || aiData?.analysis || JSON.stringify(aiData))
+
+} catch (e) {
+  const status = e?.response?.status
+  const data = e?.response?.data
+  console.error('❌ AI API error:', status, data || e)
+
+  aiAnalysisResult =
+    status
+      ? `無法取得 AI 分析結果（HTTP ${status}）：${
+          typeof data === 'string' ? data : JSON.stringify(data)
+        }`
+      : `無法取得 AI 分析結果：${e?.message || 'unknown error'}`
+}
+
+    // (B) 保留原本的 CheckRisk API (獨立執行)
     try {
       const response = await api.post(
         '/api/Test',
@@ -593,11 +608,7 @@ const analyzeMessages = async (smsArray) => {
     } catch (e) {
       console.warn('❌ CheckRisk API 錯誤：', e)
     }
-
-    } catch (e) {
-      console.warn('❌ AI API 錯誤：', e)
-      aiAnalysisResult = '無法取得 AI 分析結果'
-    }
+    
 
 // ... 在 analyzeMessages 函式內 ...
 

@@ -34,7 +34,6 @@
 
   <div class="score-container" :class="msg.keywordRiskLevel">
     <div class="score-header">
-      <span>風險評分：<strong>{{ msg.riskScore }}</strong> 分</span>
       <span class="risk-badge">
         {{ msg.keywordRiskLevel === 'high' ? '🔴 高度風險' : (msg.keywordRiskLevel === 'medium' ? '🟡 中風險' : '🟢 低風險') }}
       </span>
@@ -42,9 +41,14 @@
     
     <div v-if="msg.matchedDetails && msg.matchedDetails.length" class="score-details">
       <span class="detail-label">命中特徵：</span>
-      <span v-for="(item, idx) in msg.matchedDetails" :key="idx" class="keyword-tag">
-        {{ item.word }} <small>({{ item.weight }})</small>
-        {{ idx < msg.matchedDetails.length - 1 ? '、' : '' }}
+      <span 
+        v-for="(item, idx) in msg.matchedDetails" 
+        :key="idx" 
+        class="keyword-tag"
+        :class="item.risk" 
+      >
+        {{ item.word }} 
+        <span v-if="idx < msg.matchedDetails.length - 1" class="separator">、</span>
       </span>
     </div>
   </div>
@@ -105,6 +109,8 @@ const messages = ref([])
 const showModal = ref(false)
 const previewImg = ref(null)
 const messageEndRef = ref(null)
+// ✅ 補上這個缺少的輔助函式
+const normalizeText = (text) => (text || '').replace(/\s+/g, ' ').trim();
 
 const goBack = () => router.go(-1)
 const openImage = (src) => {
@@ -535,7 +541,7 @@ const calculateObjectiveRisk = (text) => {
   });
 
   return {
-    overallRisk: maxRiskFound, // 整段文字的風險 = 裡面最危險那個字的風險
+    riskLevel: maxRiskFound, // 整段文字的風險 = 裡面最危險那個字的風險
     matchedDetails: matchedDetails, // 包含每個字的詳細風險清單
     matchedPatterns
   };
@@ -642,7 +648,7 @@ const analyzeMessages = async (smsArray) => {
       riskText: riskText,
       
       // 🔥 這裡要對應新的回傳結構
-      riskScore: aiAnalysis.score,
+      //riskScore: aiAnalysis.score,
       keywordRiskLevel: aiAnalysis.riskLevel,
       matchedDetails: aiAnalysis.matchedDetails,
       matchedPatterns: aiAnalysis.matchedPatterns,
@@ -942,6 +948,37 @@ onMounted(() => {
   color: #333;
   line-height: 1.5;
   white-space: pre-wrap; /* 讓 AI 回傳的換行能正常顯示 */
+}
+
+.keyword-tag {
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin-right: 2px; /* 增加一點間距讓字不要黏太緊 */
+}
+
+/* 🔴 高風險關鍵字 (前 25% 高頻) */
+.keyword-tag.high {
+  color: #d32f2f;      /* 深紅色字 */
+  background-color: #fdecea; /* 淡紅底 */
+}
+
+/* 🟡 中風險關鍵字 (中間 50%) */
+.keyword-tag.medium {
+  color: #f57c00;      /* 橘色字 */
+  background-color: #fff3e0; /* 淡橘底 */
+}
+
+/* 🟢 低風險關鍵字 (後 25% 少見) */
+.keyword-tag.low {
+  color: #388e3c;      /* 綠色字 */
+  background-color: #e8f5e9; /* 淡綠底 */
+}
+
+.separator {
+  color: #999;
+  font-weight: normal;
+  margin-left: 1px;
 }
 </style>
 

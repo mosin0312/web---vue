@@ -150,25 +150,43 @@ const normalizePhone = (phone) =>
 
 // ---------- 🔍 統計客觀評分＋語意規則 ----------
 
-const normalizeText = (text) => (text || '').replace(/\s+/g, ' ').trim()
-// const containsAny = (text, words) => words.some(w => text.includes(w))
+// 1. 定義風險判斷的輔助函式 (基於四分位數)
+const getKeywordRiskLevel = (count) => {
+  if (count >= 21803) return 'high';   // 前 25% 高頻危險詞
+  if (count >= 9726) return 'medium';  // 中間 50%
+  return 'low';                        // 後 25% 相對少見
+};
 
 // 🏆 核心演算法
 const calculateObjectiveRisk = (text) => {
   if (!text) {
-    return { score: 0, riskLevel: 'low', matchedDetails: [], matchedPatterns: [] }
+    return { overallRisk: 'low', matchedDetails: [], matchedPatterns: [] };
   }
 
-  const normalized = normalizeText(text)
-  let totalScore = 0
-  let matchedDetails = []
+  const normalized = normalizeText(text);
+  let matchedDetails = [];
+  
+  // 用來追蹤這段文字中出現過的「最高」風險等級
+  let maxRiskFound = 'low'; 
+  const riskSeverity = { 'high': 3, 'medium': 2, 'low': 1 }; // 方便比較嚴重程度
 
-  // 1️⃣ 關鍵字權重計分
-  // ✅ 確保 scamKeywords 有被正確 import
-  for (const [word, weight] of Object.entries(scamKeywords)) {
+  // 1️⃣ 關鍵字掃描 & 個別風險標記
+  for (const [word, count] of Object.entries(scamKeywords)) {
     if (normalized.includes(word)) {
-      totalScore += weight
-      matchedDetails.push({ word, weight })
+      
+      // 取得該關鍵字的風險等級
+      const currentWordRisk = getKeywordRiskLevel(count);
+
+      matchedDetails.push({
+        word: word,
+        count: count,
+        risk: currentWordRisk // 這裡會標示 'high', 'medium', 或 'low'
+      });
+
+      // 更新整段文字的最高風險等級 (如果發現更嚴重的，就覆蓋過去)
+      if (riskSeverity[currentWordRisk] > riskSeverity[maxRiskFound]) {
+        maxRiskFound = currentWordRisk;
+      }
     }
   }
 
@@ -507,27 +525,20 @@ const calculateObjectiveRisk = (text) => {
 
 //  patterns.forEach(fn => fn(normalized))
 
-  // 3️⃣ 根據統計門檻判定等級
-  // 紅燈門檻 (Mean + 2σ) = 850
-  // 黃燈門檻 (Q1) = 168
-  let riskLevel = 'low'
+  // 3️⃣ 排序：把最危險的字排在最前面，方便顯示
+  matchedDetails.sort((a, b) => {
+    // 先比風險等級 (High > Medium > Low)
+    const severityDiff = riskSeverity[b.risk] - riskSeverity[a.risk];
+    if (severityDiff !== 0) return severityDiff;
+    // 如果等級一樣，比次數 (高的在前)
+    return b.count - a.count;
+  });
 
-  if (totalScore >= 850) {
-    riskLevel = 'high'
-  } else if (totalScore >= 168) {
-    riskLevel = 'medium'
-  }
-
-  // 將命中詳情依權重排序
-  matchedDetails.sort((a, b) => b.weight - a.weight)
-
-  // ✅ 回傳正確的新結構
   return {
-    score: totalScore,
-    riskLevel,
-    matchedDetails,
+    overallRisk: maxRiskFound, // 整段文字的風險 = 裡面最危險那個字的風險
+    matchedDetails: matchedDetails, // 包含每個字的詳細風險清單
     matchedPatterns
-  }
+  };
 }
 
 // ---------- 🔍 分析簡訊主流程 ----------

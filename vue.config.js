@@ -15,7 +15,7 @@ module.exports = {
 
       //api* 之前走 https://localhost:7050本機 虛擬機5050
       '/api': {
-        target: 'https://163.13.201.89:7000',
+        target: 'http://163.13.201.89:8080',
         changeOrigin: true,
         secure: false // 自簽憑證才需要 false
       },

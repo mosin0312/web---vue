@@ -94,7 +94,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { scamKeywords } from '@/router/topKeywords'
@@ -106,6 +106,17 @@ const router = useRouter()
 const phone = ref(route.query.phone || ' ')
 const displayName = ref(route.query.name || ' ')
 const messages = ref([])
+
+// === A/B/C 需要的狀態 ===
+const isAnalyzingBatch = ref(false)       // A：整批分析鎖（避免事件連發時重複跑）
+const aiQueueBusy = ref(false)            // C：AI 呼叫排隊鎖（一次只打一封）
+let latestBatchToken = 0                 // C：取消舊批次用（用 token 判斷）
+let debounceTimer = null                 // B：debounce 用
+let pendingSmsArray = null
+let pendingTimer = null
+let lastSmsArray = null
+
+
 const showModal = ref(false)
 const previewImg = ref(null)
 const messageEndRef = ref(null)
@@ -547,121 +558,272 @@ const calculateObjectiveRisk = (text) => {
   };
 }
 
+const callAiAnalyzeQueued = async (smsBody) => {
+  let waited = 0
+  while (aiQueueBusy.value) {
+    await new Promise(r => setTimeout(r, 250))
+    waited += 250
+    if (waited > 30000) return 'AI 分析忙碌中，請稍後再試'
+  }
+
+  aiQueueBusy.value = true
+  try {
+    const token = localStorage.getItem('userToken')
+    const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+    const aiResponse = await api.post(
+      '/api/Test/analyze-sms',
+      { SmsText: smsBody },   // 你後端吃 SmsText（你原本就是這樣）
+      { headers, timeout: 30000 }
+    )
+
+    const aiData = aiResponse.data
+    return typeof aiData === 'string'
+      ? aiData
+      : (aiData?.result || aiData?.analysis || JSON.stringify(aiData))
+
+  } catch (e) {
+    const status = e?.response?.status
+    const data = e?.response?.data
+    return status
+      ? `無法取得 AI 分析結果（HTTP ${status}）：${typeof data === 'string' ? data : JSON.stringify(data)}`
+      : `無法取得 AI 分析結果：${e?.message || 'unknown error'}`
+  } finally {
+    aiQueueBusy.value = false
+  }
+}
+
+
+// === B：Debounce 事件入口（只會在最後一次事件後才分析）===
+const triggerAnalyzeDebounced = (smsArray) => {
+  lastSmsArray = smsArray
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    analyzeMessages(lastSmsArray || [])
+  }, 300) // 300ms 可依你實測調整（200~500 都可）
+}
+
+
+
 // ---------- 🔍 分析簡訊主流程 ----------
 
 const analyzeMessages = async (smsArray) => {
-  const token = localStorage.getItem('userToken')
-  const targetPhone = normalizePhone(phone.value)
+ // ✅ 先讓「舊批次失效」（必修 2 核心）
+  const batchToken = ++latestBatchToken
 
-  const filtered = smsArray.filter(sms =>
-    normalizePhone(sms.address) === targetPhone &&
-    (sms.body || sms.image)
-  )
+  // ✅ 如果上一批在跑，不要直接丟掉新事件：
+  //    只要更新 token，讓上一批自己 break，這裡就先 return
+  // ✅ 如果上一批還在跑：先記住最新事件，等上一批結束後立刻跑
+  if (isAnalyzingBatch.value) {
+    pendingSmsArray = smsArray
+    clearTimeout(pendingTimer)
+    pendingTimer = setTimeout(() => {
+      // 若上一批已結束，立刻跑最新那包
+      if (!isAnalyzingBatch.value && pendingSmsArray) {
+        const data = pendingSmsArray
+        pendingSmsArray = null
+        analyzeMessages(data)
+      }
+    }, 0)
+    return
+  }
 
-  const analyzed = await Promise.all(filtered.map(async sms => {
-    let risk = 'unknown'
-    let riskText = '未知'
-    let matchedKeywords = []
-    let matchedScamUrls = []
-    let aiAnalysisResult = '' // 🔥 新增：用來存 AI 回傳的文字
+  isAnalyzingBatch.value = true
+
+
+  try {
+    const token = localStorage.getItem('userToken')
+    const targetPhone = normalizePhone(route.query.phone)
+
+
+    const filtered = smsArray.filter(sms => {
+  const smsPhone = sms.address || sms.phone
+  return normalizePhone(smsPhone) === targetPhone &&
+         (sms.body || sms.image)
+})
+
+
+  // ✅ 不要 Promise.all 同時打爆，改成 for...of 逐封處理（最穩）
+    const analyzed = []
+    for (const sms of filtered) {
+      // 如果中途又來了更新事件，舊批次直接停止
+      if (batchToken !== latestBatchToken) break
+
+      let risk = 'unknown'
+      let riskText = '未知'
+      let matchedKeywords = []
+      let matchedScamUrls = []
+      let aiAnalysisResult = '' // 🔥 新增：用來存 AI 回傳的文字
+
+      // (A) AI 分析：改用排隊呼叫
+      aiAnalysisResult = sms.body ? await callAiAnalyzeQueued(sms.body) : ''
+
+
+      // (B) CheckRisk 保留（可同樣排隊或維持原本）
+      try {
+        const response = await api.post(
+          '/api/Test',
+          { message: sms.body },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        const data = response.data
+        risk = convertRisk(data.riskLevel)
+        riskText = data.riskLevel
+        matchedKeywords = data.matchedKeywords || []
+        matchedScamUrls = data.matchedScamUrls || []
+      } catch (e) {
+        console.warn('❌ CheckRisk API 錯誤：', e)
+      }
+
+      const aiAnalysis = calculateObjectiveRisk(sms.body)
+      const isSelf = sms.type === 2 || sms.fromMe
+
+      analyzed.push({
+        position: isSelf ? 'right' : 'left',
+        text: sms.body,
+        link: extractLink(sms.body),
+        image: sms.image || '',
+        time: new Date(Number(sms.date)).toISOString(),
+
+        risk: (aiAnalysis.riskLevel === 'high' || risk === 'high') ? 'high'
+          : (aiAnalysis.riskLevel === 'medium' ? 'medium' : 'low'),
+
+        riskText,
+        keywordRiskLevel: aiAnalysis.riskLevel,
+        matchedDetails: aiAnalysis.matchedDetails,
+        matchedPatterns: aiAnalysis.matchedPatterns,
+
+        aiAnalysisResult,
+
+        matchedTopKeywords: [],
+        matchedKeywords,
+        matchedScamUrls,
+        ruleSuspicious: aiAnalysis.riskLevel !== 'low'
+      })
+    }
+
+    // 去重 + 合併 + 排序（你原本那段照用）
+    const existingKeys = new Set(messages.value.map(
+      m => `${m.text}-${m.time}-${m.image?.length || 0}`
+    ))
+
+    const uniqueNew = analyzed.filter(m =>
+      !existingKeys.has(`${m.text}-${m.time}-${m.image?.length || 0}`)
+    )
+
+    messages.value = [...messages.value, ...uniqueNew].sort(
+      (a, b) => new Date(a.time) - new Date(b.time)
+    )
+
+  } finally {
+    isAnalyzingBatch.value = false
+    // ✅ 如果剛剛跑的期間又來了新的事件，立刻再跑一次最新那包
+    if (pendingSmsArray) {
+      const data = pendingSmsArray
+      pendingSmsArray = null
+      analyzeMessages(data)
+    }
+  }
+  
+}
 
 
     // 2. 呼叫後端 API (包含舊的 CheckRisk 和新的 AI 分析)
       // (A) 呼叫新的 AI 分析 API
-      try {
-  const token = localStorage.getItem('userToken')
-  const headers = token ? { Authorization: `Bearer ${token}` } : {}
+//       try {
+//   const token = localStorage.getItem('userToken')
+//   const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
-  console.log('🔗 AI request url:', api.defaults.baseURL, '/api/Test/analyze-sms')
-  console.log('🔑 token length:', token?.length)
+//   console.log('🔗 AI request url:', api.defaults.baseURL, '/api/Test/analyze-sms')
+//   console.log('🔑 token length:', token?.length)
 
-  const aiResponse = await api.post(
-    '/api/Test/analyze-sms',
-    { SmsText: sms.body },
-    { headers }
-  )
+//   const aiResponse = await api.post(
+//     '/api/Test/analyze-sms',
+//     { SmsText: sms.body },
+//     { headers }
+//   )
 
-  const aiData = aiResponse.data
-  console.log('🤖 AI response:', aiData)
+//   const aiData = aiResponse.data
+//   console.log('🤖 AI response:', aiData)
 
-  // 統一轉字串顯示
-  aiAnalysisResult =
-    typeof aiData === 'string'
-      ? aiData
-      : (aiData?.result || aiData?.analysis || JSON.stringify(aiData))
+//   // 統一轉字串顯示
+//   aiAnalysisResult =
+//     typeof aiData === 'string'
+//       ? aiData
+//       : (aiData?.result || aiData?.analysis || JSON.stringify(aiData))
 
-} catch (e) {
-  const status = e?.response?.status
-  const data = e?.response?.data
-  console.error('❌ AI API error:', status, data || e)
+// } catch (e) {
+//   const status = e?.response?.status
+//   const data = e?.response?.data
+//   console.error('❌ AI API error:', status, data || e)
 
-  aiAnalysisResult =
-    status
-      ? `無法取得 AI 分析結果（HTTP ${status}）：${
-          typeof data === 'string' ? data : JSON.stringify(data)
-        }`
-      : `無法取得 AI 分析結果：${e?.message || 'unknown error'}`
-}
+//   aiAnalysisResult =
+//     status
+//       ? `無法取得 AI 分析結果（HTTP ${status}）：${
+//           typeof data === 'string' ? data : JSON.stringify(data)
+//         }`
+//       : `無法取得 AI 分析結果：${e?.message || 'unknown error'}`
+// }
 
-    // (B) 保留原本的 CheckRisk API (獨立執行)
-    try {
-      const response = await api.post(
-        '/api/Test',
-        { message: sms.body },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      )
+//     // (B) 保留原本的 CheckRisk API (獨立執行)
+//     try {
+//       const response = await api.post(
+//         '/api/Test',
+//         { message: sms.body },
+//         {
+//           headers: {
+//             Authorization: `Bearer ${token}`
+//           }
+//         }
+//       )
 
-      const data = response.data
-      console.log('📦 CheckRisk 回傳資料：', data)
+//       const data = response.data
+//       console.log('📦 CheckRisk 回傳資料：', data)
 
-      risk = convertRisk(data.riskLevel)
-      riskText = data.riskLevel
-      matchedKeywords = data.matchedKeywords || []
-      matchedScamUrls = data.matchedScamUrls || []
-    } catch (e) {
-      console.warn('❌ CheckRisk API 錯誤：', e)
-    }
+//       risk = convertRisk(data.riskLevel)
+//       riskText = data.riskLevel
+//       matchedKeywords = data.matchedKeywords || []
+//       matchedScamUrls = data.matchedScamUrls || []
+//     } catch (e) {
+//       console.warn('❌ CheckRisk API 錯誤：', e)
+//     }
     
 
-// ... 在 analyzeMessages 函式內 ...
+// // ... 在 analyzeMessages 函式內 ...
 
-    // ✅ 改成新的呼叫方式
-    const aiAnalysis = calculateObjectiveRisk(sms.body)
+//     // ✅ 改成新的呼叫方式
+//     const aiAnalysis = calculateObjectiveRisk(sms.body)
 
-    const isSelf = sms.type === 2 || sms.fromMe
+//     const isSelf = sms.type === 2 || sms.fromMe
 
-    return {
-      position: isSelf ? 'right' : 'left',
-      text: sms.body,
-      link: extractLink(sms.body),
-      image: sms.image || '',
-      time: new Date(Number(sms.date)).toISOString(),
+//     return {
+//       position: isSelf ? 'right' : 'left',
+//       text: sms.body,
+//       link: extractLink(sms.body),
+//       image: sms.image || '',
+//       time: new Date(Number(sms.date)).toISOString(),
       
-      // 整合風險等級
-      risk: (aiAnalysis.riskLevel === 'high' || risk === 'high') ? 'high' 
-            : (aiAnalysis.riskLevel === 'medium' ? 'medium' : 'low'),
+//       // 整合風險等級
+//       risk: (aiAnalysis.riskLevel === 'high' || risk === 'high') ? 'high' 
+//             : (aiAnalysis.riskLevel === 'medium' ? 'medium' : 'low'),
       
-      riskText: riskText,
+//       riskText: riskText,
       
-      // 🔥 這裡要對應新的回傳結構
-      //riskScore: aiAnalysis.score,
-      keywordRiskLevel: aiAnalysis.riskLevel,
-      matchedDetails: aiAnalysis.matchedDetails,
-      matchedPatterns: aiAnalysis.matchedPatterns,
+//       // 🔥 這裡要對應新的回傳結構
+//       //riskScore: aiAnalysis.score,
+//       keywordRiskLevel: aiAnalysis.riskLevel,
+//       matchedDetails: aiAnalysis.matchedDetails,
+//       matchedPatterns: aiAnalysis.matchedPatterns,
 
-      // 🔥 新增：AI 語意分析結果
-      aiAnalysisResult: aiAnalysisResult,
+//       // 🔥 新增：AI 語意分析結果
+//       aiAnalysisResult: aiAnalysisResult,
 
-      // ⚠️ 關鍵修正：為了避免 ESLint 報錯或畫面壞掉，手動補上舊欄位的空值
-      matchedTopKeywords: [], // 給它一個空陣列，這樣就不會報錯了
-      matchedKeywords: matchedKeywords, // 來自 API 的
-      matchedScamUrls: matchedScamUrls,
-      ruleSuspicious: aiAnalysis.riskLevel !== 'low' // 用新邏輯推導舊欄位
-    }
+//       // ⚠️ 關鍵修正：為了避免 ESLint 報錯或畫面壞掉，手動補上舊欄位的空值
+//       matchedTopKeywords: [], // 給它一個空陣列，這樣就不會報錯了
+//       matchedKeywords: matchedKeywords, // 來自 API 的
+//       matchedScamUrls: matchedScamUrls,
+//       ruleSuspicious: aiAnalysis.riskLevel !== 'low' // 用新邏輯推導舊欄位
+//     }
     // return {舊的
     //   position: isSelf ? 'right' : 'left',
     //   text: sms.body,
@@ -676,22 +838,34 @@ const analyzeMessages = async (smsArray) => {
     //   matchedTopKeywords,
     //   matchedPatterns
     // }
-  }))
+//   }))
 
 
 
-  const existingKeys = new Set(messages.value.map(
-    m => `${m.text}-${m.time}-${m.image?.length || 0}`
-  ))
+//   const existingKeys = new Set(messages.value.map(
+//     m => `${m.text}-${m.time}-${m.image?.length || 0}`
+//   ))
 
-  const uniqueNew = analyzed.filter(m =>
-    !existingKeys.has(`${m.text}-${m.time}-${m.image?.length || 0}`)
-  )
+//   const uniqueNew = analyzed.filter(m =>
+//     !existingKeys.has(`${m.text}-${m.time}-${m.image?.length || 0}`)
+//   )
 
-  messages.value = [...messages.value, ...uniqueNew].sort(
-    (a, b) => new Date(a.time) - new Date(b.time)
-  )
-}
+//   messages.value = [...messages.value, ...uniqueNew].sort(
+//     (a, b) => new Date(a.time) - new Date(b.time)
+//   )
+// }
+
+
+//新增
+// const onSmsFromAndroid = (e) => analyzeMessages(e?.detail || [])
+// const onSmsFromNotification = (e) => analyzeMessages(e?.detail || [])
+// const onMmsFromAndroid = (e) => analyzeMessages(e?.detail || [])
+
+// ✅ 改成走 debounce（方法 B）
+const onSmsFromAndroid = (e) => triggerAnalyzeDebounced(e?.detail || [])
+const onSmsFromNotification = (e) => triggerAnalyzeDebounced(e?.detail || [])
+const onMmsFromAndroid = (e) => triggerAnalyzeDebounced(e?.detail || [])
+
 
 watch(messages, () => {
   nextTick(() => {
@@ -702,28 +876,41 @@ watch(messages, () => {
 onMounted(() => {
   const targetPhone = normalizePhone(route.query.phone)
   const cached = localStorage.getItem('smsList')
-  if (!cached) return
+  if (cached) {
+    const list = JSON.parse(cached)
+    let updated = false
 
-  const list = JSON.parse(cached)
-  let updated = false
+    for (const sms of list) {
+      if (normalizePhone(sms.phone) === targetPhone && sms.read === 0) {
+        sms.read = 1
+        updated = true
+      }
+    }
 
-  for (const sms of list) {
-    if (normalizePhone(sms.phone) === targetPhone && sms.read === 0) {
-      sms.read = 1
-      updated = true
+    if (updated) {
+      localStorage.setItem('smsList', JSON.stringify(list))
+      console.log('✅ 已將簡訊標記為已讀')
     }
   }
 
-  if (updated) {
-    localStorage.setItem('smsList', JSON.stringify(list))
-    console.log('✅ 已將簡訊標記為已讀')
-  }
+//   window.addEventListener('sms-from-android', (e) => analyzeMessages(e.detail || []))
+//   window.addEventListener('sms-from-notification', (e) => analyzeMessages(e.detail || []))
+//  window.addEventListener('mms-from-android', (e) => analyzeMessages(e.detail || []))
+window.addEventListener('sms-from-android', onSmsFromAndroid)
+window.addEventListener('sms-from-notification', onSmsFromNotification)
+window.addEventListener('mms-from-android', onMmsFromAndroid)
 
-  window.addEventListener('sms-from-android', (e) => analyzeMessages(e.detail || []))
-  window.addEventListener('sms-from-notification', (e) => analyzeMessages(e.detail || []))
- window.addEventListener('mms-from-android', (e) => analyzeMessages(e.detail || []))
  
 })
+onUnmounted(() => {
+  window.removeEventListener('sms-from-android', onSmsFromAndroid)
+  window.removeEventListener('sms-from-notification', onSmsFromNotification)
+  window.removeEventListener('mms-from-android', onMmsFromAndroid)
+
+  // ✅ 補：避免頁面離開後 debounce 還觸發
+  clearTimeout(debounceTimer)
+})
+
 
 </script>
 
